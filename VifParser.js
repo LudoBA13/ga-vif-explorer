@@ -61,18 +61,20 @@ class VifParser
 				continue;
 			}
 
-			// Quick check: data lines MUST have tabs. metadata like 'Client :' usually don't.
+			if (line.indexOf('Client :') !== -1)
+			{
+				const clientMatch = line.match(clientRegex);
+				if (clientMatch)
+				{
+					currentState.customerID = clientMatch[1];
+				}
+				continue;
+			}
+
+			// Quick check: data lines MUST have tabs.
 			const tabIdx = line.indexOf('\t');
 			if (tabIdx === -1)
 			{
-				if (line.indexOf('Client :') !== -1)
-				{
-					const clientMatch = line.match(clientRegex);
-					if (clientMatch)
-					{
-						currentState.customerID = clientMatch[1];
-					}
-				}
 				continue;
 			}
 
