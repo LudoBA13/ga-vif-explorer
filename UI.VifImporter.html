@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<base target="_top">
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+	</head>
+	<body>
+		<main class="container">
+			<p>Cette fonction permet d'importer les bons de livraisons VIF pour les mettre à jour dans ce document.</p>
+			<form onsubmit="event.preventDefault(); upload();">
+				<label for="file">Fichier VIF (texte)</label>
+				<input type="file" id="file" name="file" accept=".txt" required>
+				<button type="submit">Importer</button>
+			</form>
+			<div id="status"></div>
+		</main>
+		<script>
+			function upload()
+			{
+				const fileInput = document.getElementById('file');
+				const file = fileInput.files[0];
+
+				if (!file)
+				{
+					return;
+				}
+
+				document.getElementById('status').innerHTML = '<progress indeterminate></progress>';
+				resize();
+
+				const reader = new FileReader;
+				reader.onload = function (e)
+				{
+					const dataUrl = e.target.result;
+					const data = dataUrl.split(',')[1];
+					const fileData = {
+						name: file.name,
+						mimeType: file.type,
+						data: data
+					};
+
+					google.script.run
+						.withSuccessHandler(onSuccess)
+						.withFailureHandler(onFailure)
+						.processUpload(fileData); // Call the existing processUpload from VifParser.js
+				};
+				reader.readAsDataURL(file);
+			}
+
+			function onSuccess(message)
+			{
+				document.getElementById('status').innerHTML = `<p style="color:green;">${message}</p>`;
+				resize();
+				// Optionally close the dialog after a short delay
+				// setTimeout(() => google.script.host.close(), 2000);
+			}
+
+			function onFailure(error)
+			{
+				document.getElementById('status').innerHTML = `<p style="color:red;">Erreur: ${error.message}</p>`;
+				resize();
+			}
+
+			function resize()
+			{
+				const height = document.body.scrollHeight + 10;
+				google.script.host.setHeight(height);
+			}
+
+			window.onload = resize;
+		</script>
+	</body>
+</html>
