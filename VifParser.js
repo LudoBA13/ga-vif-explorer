@@ -379,3 +379,43 @@ function processUpload(fileObj)
 		return 'Erreur : ' + e.toString();
 	}
 }
+
+/**
+ * Focuses the 'VIF_BL' sheet and navigates to the first row matching the given BL ID.
+ * @param {string|number} id - The BL ID to find.
+ */
+function goToBL(id)
+{
+	const ss = SpreadsheetApp.getActiveSpreadsheet();
+	const sheet = ss.getSheetByName('VIF_BL');
+
+	if (!sheet)
+	{
+		return;
+	}
+
+	sheet.activate();
+
+	const data = sheet.getDataRange().getValues();
+	if (data.length === 0)
+	{
+		return;
+	}
+
+	const headers = data[0];
+	const blColIndex = headers.indexOf('n° BL');
+
+	if (blColIndex === -1)
+	{
+		return;
+	}
+
+	for (let i = 1; i < data.length; i++)
+	{
+		if (String(data[i][blColIndex]) === String(id))
+		{
+			sheet.getRange(i + 1, blColIndex + 1).activate();
+			break;
+		}
+	}
+}
