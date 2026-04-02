@@ -130,7 +130,9 @@ class VifParser
 
 		const ignoredArticles = [
 			// Articles de collecte gardés
-			'5010010'
+			'5010010',
+			// Materiel autre
+			'6010070'
 		];
 
 		const specialFamilyChar = {
@@ -145,8 +147,9 @@ class VifParser
 			const row = data[i];
 			const bl = row[2];
 			const article = row[4];
+			const articleStr = String(article);
 
-			if (ignoredArticles.includes(String(article)))
+			if (ignoredArticles.includes(articleStr))
 			{
 				continue;
 			}
@@ -186,8 +189,6 @@ class VifParser
 			{
 				++stats['Produits Proxidon'];
 			}
-
-			const articleStr = String(article);
 
 			// Skip frequency counters if this article was already counted for the current BL
 			if (stats._articles.has(articleStr))
