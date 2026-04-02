@@ -163,6 +163,7 @@ class VifParser
 					'Code VIF': row[0],
 					'Date': row[1],
 					'n° BL': bl,
+					'_row': i + 1, // Store the sheet row index (internal use)
 					'Type BL': '',
 					'Kg Net': 0,
 					'Produits Sec': 0,
@@ -320,6 +321,7 @@ function refreshBLStats()
 			throw new Error("La feuille 'VIF_BL' est introuvable.");
 		}
 
+		const gid = blSheet.getSheetId();
 		const data = blSheet.getDataRange().getValues();
 		if (data.length <= 1)
 		{
@@ -332,7 +334,14 @@ function refreshBLStats()
 
 		for (const stat of VifParser.parseBLStats(data))
 		{
-			statsRows.push(headers.map(h => stat[h]));
+			statsRows.push(headers.map(h => {
+				if (h === 'n° BL')
+				{
+					// Create a hyperlink to the specific row in VIF_BL sheet
+					return `=HYPERLINK("#gid=${gid}&range=C${stat._row}"; "${stat[h]}")`;
+				}
+				return stat[h];
+			}));
 		}
 
 		VifParser.writeToSheet('VIF_BL_Stats', statsRows);
@@ -354,12 +363,16 @@ function processUpload(fileObj)
 {
 	try
 	{
+		const ss = SpreadsheetApp.getActiveSpreadsheet();
 		const blob = Utilities.newBlob(Utilities.base64Decode(fileObj.data), fileObj.mimeType);
 		const content = blob.getDataAsString('ISO-8859-1');
 
 		// Import detailed BL data
 		const parsedData = VifParser.parseBL(content);
 		VifParser.writeToSheet('VIF_BL', parsedData);
+
+		const blSheet = ss.getSheetByName('VIF_BL');
+		const gid = blSheet.getSheetId();
 
 		// Import BL statistics
 		const statsRows = [];
@@ -368,7 +381,13 @@ function processUpload(fileObj)
 
 		for (const stat of VifParser.parseBLStats(parsedData))
 		{
-			statsRows.push(headers.map(h => stat[h]));
+			statsRows.push(headers.map(h => {
+				if (h === 'n° BL')
+				{
+					return `=HYPERLINK("#gid=${gid}&range=C${stat._row}"; "${stat[h]}")`;
+				}
+				return stat[h];
+			}));
 		}
 		VifParser.writeToSheet('VIF_BL_Stats', statsRows);
 
@@ -377,82 +396,5 @@ function processUpload(fileObj)
 	catch (e)
 	{
 		return 'Erreur : ' + e.toString();
-	}
-}
-
-/**
- * Focuses the 'VIF_BL' sheet and navigates to the first row matching the given BL ID.
- * @param {string|number} id - The BL ID to find.
- */
-function goToBL(id)
-{
-	const ss = SpreadsheetApp.getActiveSpreadsheet();
-	const sheet = ss.getSheetByName('VIF_BL');
-
-	if (!sheet)
-	{
-		return;
-	}
-
-	sheet.activate();
-
-	const data = sheet.getDataRange().getValues();
-	if (data.length === 0)
-	{
-		return;
-	}
-
-	const headers = data[0];
-	const blColIndex = headers.indexOf('n° BL');
-
-	if (blColIndex === -1)
-	{
-		return;
-	}
-
-	for (let i = 1; i < data.length; i++)
-	{
-		if (String(data[i][blColIndex]) === String(id))
-		{
-			sheet.getRange(i + 1, blColIndex + 1).activate();
-			break;
-		}
-	}
-}
-
-/**
- * Triggered when the selection changes in the spreadsheet.
- * Used to navigate to the BL details from the stats sheet.
- */
-function onSelectionChange(e)
-{
-	const range = e.range;
-	if (range.getNumRows() > 1 || range.getNumColumns() > 1)
-	{
-		return;
-	}
-
-	const sheet = range.getSheet();
-	if (sheet.getName() !== 'VIF_BL_Stats')
-	{
-		return;
-	}
-
-	const row = range.getRow();
-	const col = range.getColumn();
-
-	if (row === 1)
-	{
-		return;
-	}
-
-	const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-	if (headers[col - 1] === 'n° BL')
-	{
-		const value = range.getValue();
-		if (value)
-		{
-			goToBL(value);
-		}
 	}
 }
