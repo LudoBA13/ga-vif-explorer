@@ -419,3 +419,40 @@ function goToBL(id)
 		}
 	}
 }
+
+/**
+ * Triggered when the selection changes in the spreadsheet.
+ * Used to navigate to the BL details from the stats sheet.
+ */
+function onSelectionChange(e)
+{
+	const range = e.range;
+	if (range.getNumRows() > 1 || range.getNumColumns() > 1)
+	{
+		return;
+	}
+
+	const sheet = range.getSheet();
+	if (sheet.getName() !== 'VIF_BL_Stats')
+	{
+		return;
+	}
+
+	const row = range.getRow();
+	const col = range.getColumn();
+
+	if (row === 1)
+	{
+		return;
+	}
+
+	const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+	if (headers[col - 1] === 'n° BL')
+	{
+		const value = range.getValue();
+		if (value)
+		{
+			goToBL(value);
+		}
+	}
+}
