@@ -164,6 +164,7 @@ class VifParser
 					'Date': row[1],
 					'n° BL': bl,
 					'_row': i + 1, // Store the sheet row index (internal use)
+					'_articles': new Set(), // Track processed articles for this BL
 					'Type BL': '',
 					'Kg Net': 0,
 					'Produits Sec': 0,
@@ -176,48 +177,53 @@ class VifParser
 				};
 			}
 
-			if (article)
+			const kgNetVal = row[7];
+			const kgNet = typeof kgNetVal === 'number' ? kgNetVal : parseFloat(String(kgNetVal || '0').replace(',', '.')) || 0;
+			stats['Kg Net'] += kgNet;
+
+			const lot = row[6];
+			if (lot && String(lot).toLowerCase().startsWith('proxidon'))
 			{
-				const kgNetVal = row[7];
-				const kgNet = typeof kgNetVal === 'number' ? kgNetVal : parseFloat(String(kgNetVal || '0').replace(',', '.')) || 0;
-				stats['Kg Net'] += kgNet;
+				++stats['Produits Proxidon'];
+			}
 
-				const articleStr = String(article);
-				const len = articleStr.length;
-				const familyChar = specialFamilyChar[articleStr] || ((len < 5) ? '' : articleStr.charAt(len - 5));
+			const articleStr = String(article);
 
-				if (familyChar === '1')
-				{
-					++stats['Produits Sec'];
-				}
-				else if (familyChar === '2')
-				{
-					++stats['Produits Frais'];
+			// Skip frequency counters if this article was already counted for the current BL
+			if (stats._articles.has(articleStr))
+			{
+				continue;
+			}
+			stats._articles.add(articleStr);
 
-					if (articleStr.startsWith('452'))
-					{
-						++stats['Produits F&L'];
-					}
-				}
-				else if (familyChar === '3')
-				{
-					++stats['Produits Surgelé'];
-				}
+			const len = articleStr.length;
+			const familyChar = specialFamilyChar[articleStr] || ((len < 5) ? '' : articleStr.charAt(len - 5));
 
-				if (articleStr.endsWith('9'))
-				{
-					++stats['Produits FSE'];
-				}
-				if (articleStr.endsWith('3'))
-				{
-					++stats['Produits CNES'];
-				}
+			if (familyChar === '1')
+			{
+				++stats['Produits Sec'];
+			}
+			else if (familyChar === '2')
+			{
+				++stats['Produits Frais'];
 
-				const lot = row[6];
-				if (lot && String(lot).toLowerCase().startsWith('proxidon'))
+				if (articleStr.startsWith('452'))
 				{
-					++stats['Produits Proxidon'];
+					++stats['Produits F&L'];
 				}
+			}
+			else if (familyChar === '3')
+			{
+				++stats['Produits Surgelé'];
+			}
+
+			if (articleStr.endsWith('9'))
+			{
+				++stats['Produits FSE'];
+			}
+			else if (articleStr.endsWith('3'))
+			{
+				++stats['Produits CNES'];
 			}
 		}
 
