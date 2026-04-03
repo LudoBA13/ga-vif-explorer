@@ -1,11 +1,14 @@
 class VifParser
 {
-	static STATS_HEADERS = [
-		'Code VIF', 'Date', 'n° BL', 'Type BL', 'Kg Net',
-		'Produits Sec', 'Produits Frais', 'Produits Surgelé',
-		'Produits F&L', 'Produits FSE', 'Produits CNES',
-		'Produits Proxidon', 'Lait ambiant'
-	];
+	static get STATS_HEADERS()
+	{
+		return [
+			'Code VIF', 'Date', 'n° BL', 'Type BL', 'Kg Net',
+			'Produits Sec', 'Produits Frais', 'Produits Surgelé',
+			'Produits F&L', 'Produits FSE', 'Produits CNES',
+			'Produits Proxidon', 'Lait ambiant'
+		];
+	}
 
 	/**
 	 * Parses the raw text content from VIF export into a 1NF 2D array.
