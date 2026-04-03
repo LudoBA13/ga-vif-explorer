@@ -176,7 +176,8 @@ class VifParser
 					'Produits F&L': 0,
 					'Produits FSE': 0,
 					'Produits CNES': 0,
-					'Produits Proxidon': 0
+					'Produits Proxidon': 0,
+					'Lait ambiant': 0
 				};
 			}
 
@@ -203,6 +204,11 @@ class VifParser
 			if (familyChar === '1')
 			{
 				++stats['Produits Sec'];
+
+				if (/^91....$/.test(articleStr))
+				{
+					++stats['Lait ambiant'];
+				}
 			}
 			else if (familyChar === '2')
 			{
@@ -257,7 +263,7 @@ class VifParser
 		}
 		if (stats['Produits Sec'] > 0)
 		{
-			return 'Sec';
+			return (stats['Produits Sec'] - stats['Lait ambiant'] <= 3) ? 'Complément' : 'Sec';
 		}
 		return '';
 	}
@@ -336,7 +342,7 @@ function refreshBLStats()
 		}
 
 		const statsRows = [];
-		const headers = ['Code VIF', 'Date', 'n° BL', 'Type BL', 'Kg Net', 'Produits Sec', 'Produits Frais', 'Produits Surgelé', 'Produits F&L', 'Produits FSE', 'Produits CNES', 'Produits Proxidon'];
+		const headers = ['Code VIF', 'Date', 'n° BL', 'Type BL', 'Kg Net', 'Produits Sec', 'Produits Frais', 'Produits Surgelé', 'Produits F&L', 'Produits FSE', 'Produits CNES', 'Produits Proxidon', 'Lait ambiant'];
 		statsRows.push(headers);
 
 		for (const stat of VifParser.parseBLStats(data))
@@ -383,7 +389,7 @@ function processUpload(fileObj)
 
 		// Import BL statistics
 		const statsRows = [];
-		const headers = ['Code VIF', 'Date', 'n° BL', 'Type BL', 'Kg Net', 'Produits Sec', 'Produits Frais', 'Produits Surgelé', 'Produits F&L', 'Produits FSE', 'Produits CNES', 'Produits Proxidon'];
+		const headers = ['Code VIF', 'Date', 'n° BL', 'Type BL', 'Kg Net', 'Produits Sec', 'Produits Frais', 'Produits Surgelé', 'Produits F&L', 'Produits FSE', 'Produits CNES', 'Produits Proxidon', 'Lait ambiant'];
 		statsRows.push(headers);
 
 		for (const stat of VifParser.parseBLStats(parsedData))
