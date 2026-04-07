@@ -6,7 +6,7 @@ class VifParser
 			'Code VIF', 'Date', 'n° BL', 'Type BL', 'Kg Net',
 			'Produits Sec', 'Produits Frais', 'Produits Surgelé',
 			'Produits F&L', 'Produits FSE', 'Produits CNES',
-			'Produits Proxidon', 'Lait ambiant'
+			'Produits Proxidon', 'Lait ambiant', 'Week'
 		];
 	}
 
@@ -45,7 +45,7 @@ class VifParser
 
 		yield [
 			'Code VIF', 'Date', 'n° BL', 'n° Cde', 'Article',
-			'Libellé', 'Lot', 'Kg Net', 'Kg Brut', 'P', 'COL'
+			'Libellé', 'Lot', 'Kg Net', 'Kg Brut', 'P', 'COL', 'Week'
 		];
 
 		let start = 0;
@@ -122,7 +122,8 @@ class VifParser
 					cols[6]?.trim() || '',
 					cols[7]?.trim() || '',
 					cols[8]?.trim() || '',
-					cols[9]?.trim() || ''
+					cols[9]?.trim() || '',
+					VifParser._getISOWeek(currentState.date)
 				];
 			}
 		}
@@ -187,7 +188,8 @@ class VifParser
 					'Produits FSE': 0,
 					'Produits CNES': 0,
 					'Produits Proxidon': 0,
-					'Lait ambiant': 0
+					'Lait ambiant': 0,
+					'Week': row[11] || VifParser._getISOWeek(row[1])
 				};
 			}
 
@@ -279,6 +281,46 @@ class VifParser
 	}
 
 	/**
+	 * Returns the ISO week number for a given date using Utilities.formatDate.
+	 * @param {Date|string} dateVal - The date object or string (DD/MM/YYYY).
+	 * @return {number|string} The ISO week number.
+	 * @private
+	 */
+	static _getISOWeek(dateVal)
+	{
+		if (!dateVal)
+		{
+			return '';
+		}
+
+		let date;
+		if (dateVal instanceof Date)
+		{
+			date = dateVal;
+		}
+		else
+		{
+			const parts = String(dateVal).split('/');
+			if (parts.length === 3)
+			{
+				// Assume DD/MM/YYYY
+				date = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+			}
+			else
+			{
+				date = new Date(dateVal);
+			}
+		}
+
+		if (isNaN(date.getTime()))
+		{
+			return '';
+		}
+
+		return parseInt(Utilities.formatDate(date, SpreadsheetApp.getActive().getSpreadsheetTimeZone(), 'w'), 10);
+	}
+
+	/**
 	 * Handles sheet creation/selection and data injection.
 	 * @param {string} sheetName - The name of the target sheet.
 	 * @param {string[][]} data - The 2D array of data to write.
@@ -361,7 +403,9 @@ function refreshBLStats()
 				if (h === 'n° BL')
 				{
 					// Create a hyperlink to the specific row in VIF_BL sheet
-					return `=HYPERLINK("#gid=${gid}&range=C${stat._row}"; "${stat[h]}")`;
+					const blColIdx = data[0].indexOf('n° BL');
+					const colLetter = blColIdx !== -1 ? String.fromCharCode(65 + blColIdx) : 'C';
+					return `=HYPERLINK("#gid=${gid}&range=${colLetter}${stat._row}"; "${stat[h]}")`;
 				}
 				return stat[h];
 			}));
@@ -407,7 +451,9 @@ function processUpload(fileObj)
 			statsRows.push(headers.map(h => {
 				if (h === 'n° BL')
 				{
-					return `=HYPERLINK("#gid=${gid}&range=C${stat._row}"; "${stat[h]}")`;
+					const blColIdx = parsedData[0].indexOf('n° BL');
+					const colLetter = blColIdx !== -1 ? String.fromCharCode(65 + blColIdx) : 'C';
+					return `=HYPERLINK("#gid=${gid}&range=${colLetter}${stat._row}"; "${stat[h]}")`;
 				}
 				return stat[h];
 			}));
