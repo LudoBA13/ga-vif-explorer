@@ -1,11 +1,11 @@
 class PlanningInsights
 {
 	/**
-	 * Identifies the delivery pattern from a history of French day-week strings.
+	 * Identifies the delivery pattern from a history of day-week strings.
 	 * A pattern is defined as the minimal set of day-week pairs that account
 	 * for at least 75% of the entries in the history.
 	 *
-	 * @param {string[]} history - List of strings matching /^(lundi|mardi|mercredi|jeudi|vendredi)-[1234]$/
+	 * @param {string[]} history - List of strings matching /^[1234](Lu|Ma|Me|Je|Ve)$/
 	 * @returns {string[]} A list of pattern components matching /^[1234](Lu|Ma|Me|Je|Ve)$/
 	 */
 	static getPattern(history)
@@ -15,29 +15,13 @@ class PlanningInsights
 			return [];
 		}
 
-		const dayMapping = {
-			'lundi': 'Lu',
-			'mardi': 'Ma',
-			'mercredi': 'Me',
-			'jeudi': 'Je',
-			'vendredi': 'Ve'
-		};
-
 		const frequencies = {};
 		const total = history.length;
 
-		// 1. Map input to short codes and count frequencies
+		// 1. Count frequencies
 		for (const entry of history)
 		{
-			const [day, week] = entry.split('-');
-			const shortDay = dayMapping[day.toLowerCase()];
-			if (!shortDay)
-			{
-				continue;
-			}
-
-			const code = `${week}${shortDay}`;
-			frequencies[code] = (frequencies[code] || 0) + 1;
+			frequencies[entry] = (frequencies[entry] || 0) + 1;
 		}
 
 		// 2. Sort by frequency descending
