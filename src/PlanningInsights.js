@@ -3,12 +3,13 @@ class PlanningInsights
 	/**
 	 * Identifies the delivery pattern from a history of day-week strings.
 	 * A pattern is defined as the minimal set of day-week pairs that account
-	 * for at least 75% of the entries in the history.
+	 * for at least the given threshold of the entries in the history.
 	 *
 	 * @param {string[]} history - List of strings matching /^[1234](Lu|Ma|Me|Je|Ve)$/
+	 * @param {number} threshold - Data coverage requirement (default: 0.75)
 	 * @returns {string[]} A list of pattern components matching /^[1234](Lu|Ma|Me|Je|Ve)$/
 	 */
-	static getPattern(history)
+	static getPattern(history, threshold = 0.75)
 	{
 		if (!history || history.length === 0)
 		{
@@ -28,17 +29,17 @@ class PlanningInsights
 		const sortedPairs = Object.entries(frequencies)
 			.sort((a, b) => b[1] - a[1]);
 
-		// 3. Select top candidates covering at least 75% of the data
+		// 3. Select top candidates covering at least the required threshold
 		const pattern = [];
 		let cumulativeCount = 0;
-		const threshold = total * 0.75;
+		const targetCount = total * threshold;
 
 		for (const [code, count] of sortedPairs)
 		{
 			pattern.push(code);
 			cumulativeCount += count;
 
-			if (cumulativeCount >= threshold)
+			if (cumulativeCount >= targetCount)
 			{
 				break;
 			}

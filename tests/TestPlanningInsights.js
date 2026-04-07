@@ -3,9 +3,9 @@
 
 const PlanningInsights = require('../src/PlanningInsights.js');
 
-function test(name, history, expected)
+function test(name, history, expected, threshold)
 {
-	const result = PlanningInsights.getPattern(history);
+	const result = PlanningInsights.getPattern(history, threshold);
 	const success = JSON.stringify(result) === JSON.stringify(expected);
 	console.log(`${success ? '✅' : '❌'} ${name}`);
 	if (!success)
@@ -48,3 +48,13 @@ test('Sorted output by day order', history4, ['1Lu', '1Ma']);
 const history5 = ['4Lu', '1Lu', '4Lu', '1Lu'];
 // Sorted by week.
 test('Sorted output by week order', history5, ['1Lu', '4Lu']);
+
+const history6 = ['1Lu', '1Lu', '1Ma', '1Ma', '1Me'];
+// Total 5. 
+// 1Lu: 2, 1Ma: 2, 1Me: 1.
+// 0.4 coverage: 1Lu covers 40%.
+test('Configurable threshold (0.4)', history6, ['1Lu'], 0.4);
+// 0.8 coverage: 1Lu + 1Ma cover 80%.
+test('Configurable threshold (0.8)', history6, ['1Lu', '1Ma'], 0.8);
+// 0.9 coverage: 1Lu + 1Ma + 1Me cover 100%.
+test('Configurable threshold (0.9)', history6, ['1Lu', '1Ma', '1Me'], 0.9);
