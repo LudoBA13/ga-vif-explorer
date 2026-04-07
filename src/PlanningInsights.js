@@ -19,9 +19,9 @@ class PlanningInsights
 		const total = history.length;
 
 		// 1. Count frequencies
-		for (const entry of history)
+		for (const code of history)
 		{
-			frequencies[entry] = (frequencies[entry] || 0) + 1;
+			frequencies[code] = (frequencies[code] || 0) + 1;
 		}
 
 		// 2. Sort by frequency descending
