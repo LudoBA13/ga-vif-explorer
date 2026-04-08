@@ -10,6 +10,91 @@ class VifParser
 		];
 	}
 
+	static get BL_TYPES()
+	{
+		return ['Sec', 'Frais', 'Surgelé', 'F&L', 'Proxidon', 'Complément'];
+	}
+
+	/**
+	 * Aggregates statistics into weekly summaries.
+	 * @param {string[][]} statsData - The 2D array of 'VIF_BL_Stats' data (with headers).
+	 * @return {string[][]} The aggregated weekly statistics with headers.
+	 */
+	static aggregateWeeklyStats(statsData)
+	{
+		if (!statsData || statsData.length <= 1)
+		{
+			return [];
+		}
+
+		const headers = statsData[0];
+		const codeVifIdx = headers.indexOf('Code VIF');
+		const weekIdx = headers.indexOf('Week');
+		const typeBlIdx = headers.indexOf('Type BL');
+		const kgNetIdx = headers.indexOf('Kg Net');
+
+		if (codeVifIdx === -1 || weekIdx === -1 || typeBlIdx === -1 || kgNetIdx === -1)
+		{
+			throw new Error("Missing required columns in 'VIF_BL_Stats'.");
+		}
+
+		const weeklyStatsMap = new Map();
+		const blTypes = VifParser.BL_TYPES;
+
+		for (let i = 1; i < statsData.length; i++)
+		{
+			const row = statsData[i];
+			const codeVif = row[codeVifIdx];
+			const week = row[weekIdx];
+			const typeBl = row[typeBlIdx];
+			const kgNetRaw = row[kgNetIdx];
+			const kgNet = typeof kgNetRaw === 'number' ? kgNetRaw : parseFloat(String(kgNetRaw || '0').replace(',', '.')) || 0;
+
+			const key = `${codeVif}_${week}`;
+			if (!weeklyStatsMap.has(key))
+			{
+				const entry = {
+					'Code VIF': codeVif,
+					'Week': week,
+					'Total Kg Net': 0
+				};
+				blTypes.forEach(t => {
+					entry[t] = 0;
+				});
+				weeklyStatsMap.set(key, entry);
+			}
+
+			const entry = weeklyStatsMap.get(key);
+			entry['Total Kg Net'] += kgNet;
+			if (blTypes.includes(typeBl))
+			{
+				entry[typeBl] += kgNet;
+			}
+		}
+
+		const weeklyHeaders = ['Code VIF', 'Week', ...blTypes, 'Total Kg Net'];
+		const resultRows = [weeklyHeaders];
+
+		const sortedEntries = Array.from(weeklyStatsMap.values()).sort((a, b) => {
+			const vifA = String(a['Code VIF']);
+			const vifB = String(b['Code VIF']);
+			if (vifA !== vifB)
+			{
+				return vifA.localeCompare(vifB);
+			}
+			return a['Week'] - b['Week'];
+		});
+
+		for (const entry of sortedEntries)
+		{
+			resultRows.push(weeklyHeaders.map(h => {
+				return entry[h];
+			}));
+		}
+
+		return resultRows;
+	}
+
 	/**
 	 * Parses the raw text content from VIF export into a 1NF 2D array.
 	 * @param {string} content - The raw string content of the file.
@@ -465,5 +550,38 @@ function processUpload(fileObj)
 	catch (e)
 	{
 		return 'Erreur : ' + e.toString();
+	}
+}
+
+/**
+ * Refreshes the 'VIF_BL_Stats_Weekly' sheet by aggregating 'VIF_BL_Stats' data.
+ */
+function refreshWeeklyStats()
+{
+	try
+	{
+		const ss = SpreadsheetApp.getActiveSpreadsheet();
+		const statsSheet = ss.getSheetByName('VIF_BL_Stats');
+
+		if (!statsSheet)
+		{
+			throw new Error("La feuille 'VIF_BL_Stats' est introuvable.");
+		}
+
+		const statsData = statsSheet.getDataRange().getValues();
+		const weeklyStats = VifParser.aggregateWeeklyStats(statsData);
+
+		if (weeklyStats.length > 0)
+		{
+			VifParser.writeToSheet('VIF_BL_Stats_Weekly', weeklyStats);
+
+			const ui = SpreadsheetApp.getUi();
+			ui.alert('Succès', 'Les statistiques hebdomadaires ont été rafraîchies.', ui.ButtonSet.OK);
+		}
+	}
+	catch (e)
+	{
+		const ui = SpreadsheetApp.getUi();
+		ui.alert('Erreur', e.toString(), ui.ButtonSet.OK);
 	}
 }

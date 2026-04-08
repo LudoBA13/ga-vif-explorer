@@ -18,6 +18,7 @@ function onOpen()
 	SpreadsheetApp.getUi().createMenu('VIF')
 		.addItem('Importer BLs', 'showVifImporter')
 		.addItem('Recalculer stats', 'refreshBLStats')
+		.addItem('Recalculer stats hebdo', 'refreshWeeklyStats')
 		.addToUi();
 }
 
