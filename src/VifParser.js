@@ -30,10 +30,11 @@ class VifParser
 		const headers = statsData[0];
 		const codeVifIdx = headers.indexOf('Code VIF');
 		const weekIdx = headers.indexOf('Week');
+		const dateIdx = headers.indexOf('Date');
 		const typeBlIdx = headers.indexOf('Type BL');
 		const kgNetIdx = headers.indexOf('Kg Net');
 
-		if (codeVifIdx === -1 || weekIdx === -1 || typeBlIdx === -1 || kgNetIdx === -1)
+		if (codeVifIdx === -1 || weekIdx === -1 || typeBlIdx === -1 || kgNetIdx === -1 || dateIdx === -1)
 		{
 			throw new Error("Missing required columns in 'VIF_BL_Stats'.");
 		}
@@ -46,6 +47,7 @@ class VifParser
 			const row = statsData[i];
 			const codeVif = row[codeVifIdx];
 			const week = row[weekIdx];
+			const date = row[dateIdx];
 			const typeBl = row[typeBlIdx];
 			const kgNetRaw = row[kgNetIdx];
 			const kgNet = typeof kgNetRaw === 'number' ? kgNetRaw : parseFloat(String(kgNetRaw || '0').replace(',', '.')) || 0;
@@ -56,6 +58,7 @@ class VifParser
 				const entry = {
 					'Code VIF': codeVif,
 					'Week': week,
+					'Month': dateToMonthNum(date),
 					'Total Kg Net': 0
 				};
 				blTypes.forEach(t => {
@@ -72,7 +75,7 @@ class VifParser
 			}
 		}
 
-		const weeklyHeaders = ['Code VIF', 'Week', ...blTypes, 'Total Kg Net'];
+		const weeklyHeaders = ['Code VIF', 'Week', 'Month', ...blTypes, 'Total Kg Net'];
 		const resultRows = [weeklyHeaders];
 
 		const sortedEntries = Array.from(weeklyStatsMap.values()).sort((a, b) => {
@@ -366,9 +369,11 @@ class VifParser
 	}
 
 	/**
-	 * Returns the ISO week number for a given date using Utilities.formatDate.
+	 * Returns the week number for a given date, adjusted to avoid year-overlap.
+	 * If a date in January has a week >= 52, it returns 1.
+	 * If a date in December has a week == 1, it returns 52.
 	 * @param {Date|string} dateVal - The date object or string (DD/MM/YYYY).
-	 * @return {number|string} The ISO week number.
+	 * @return {number|string} The adjusted week number.
 	 * @private
 	 */
 	static _getISOWeek(dateVal)
@@ -402,7 +407,19 @@ class VifParser
 			return '';
 		}
 
-		return parseInt(Utilities.formatDate(date, SpreadsheetApp.getActive().getSpreadsheetTimeZone(), 'w'), 10);
+		let week = parseInt(Utilities.formatDate(date, SpreadsheetApp.getActive().getSpreadsheetTimeZone(), 'w'), 10);
+		const month = date.getMonth(); // 0 = January, 11 = December
+
+		if (month === 0 && week >= 52)
+		{
+			week = 1;
+		}
+		else if (month === 11 && week === 1)
+		{
+			week = 52;
+		}
+
+		return week;
 	}
 
 	/**
