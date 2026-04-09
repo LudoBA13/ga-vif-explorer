@@ -3,7 +3,7 @@ class VifParser
 	static get STATS_HEADERS()
 	{
 		return [
-			'Code VIF', 'Date', 'n° BL', 'Type BL', 'Kg Net',
+			'Code VIF', 'Date', 'Month', 'n° BL', 'Type BL', 'Kg Net',
 			'Produits Sec', 'Produits Frais', 'Produits Surgelé',
 			'Produits F&L', 'Produits FSE', 'Produits CNES',
 			'Produits Proxidon', 'Lait ambiant', 'Week'
@@ -31,6 +31,7 @@ class VifParser
 		const codeVifIdx = headers.indexOf('Code VIF');
 		const weekIdx = headers.indexOf('Week');
 		const dateIdx = headers.indexOf('Date');
+		const monthIdx = headers.indexOf('Month');
 		const typeBlIdx = headers.indexOf('Type BL');
 		const kgNetIdx = headers.indexOf('Kg Net');
 
@@ -48,6 +49,7 @@ class VifParser
 			const codeVif = row[codeVifIdx];
 			const week = row[weekIdx];
 			const date = row[dateIdx];
+			const month = monthIdx !== -1 ? row[monthIdx] : VifParser._getMonthNum(date);
 			const typeBl = row[typeBlIdx];
 			const kgNetRaw = row[kgNetIdx];
 			const kgNet = typeof kgNetRaw === 'number' ? kgNetRaw : parseFloat(String(kgNetRaw || '0').replace(',', '.')) || 0;
@@ -58,7 +60,7 @@ class VifParser
 				const entry = {
 					'Code VIF': codeVif,
 					'Week': week,
-					'Month': dateToMonthNum(date),
+					'Month': month,
 					'Total Kg Net': 0
 				};
 				blTypes.forEach(t => {
@@ -264,6 +266,7 @@ class VifParser
 				stats = {
 					'Code VIF': row[0],
 					'Date': row[1],
+					'Month': VifParser._getMonthNum(row[1]),
 					'n° BL': bl,
 					'_row': i + 1, // Store the sheet row index (internal use)
 					'_articles': new Set(), // Track processed articles for this BL
@@ -378,9 +381,50 @@ class VifParser
 	 */
 	static _getISOWeek(dateVal)
 	{
-		if (!dateVal)
+		const date = VifParser._getDate(dateVal);
+		if (!date)
 		{
 			return '';
+		}
+
+		let week = parseInt(Utilities.formatDate(date, SpreadsheetApp.getActive().getSpreadsheetTimeZone(), 'w'), 10);
+		const month = date.getMonth(); // 0 = January, 11 = December
+
+		if (month === 0 && week >= 52)
+		{
+			week = 1;
+		}
+		else if (month === 11 && week === 1)
+		{
+			week = 52;
+		}
+
+		return week;
+	}
+
+	/**
+	 * Returns the month number (1-12) for a given date.
+	 * @param {Date|string} dateVal - The date object or string (DD/MM/YYYY).
+	 * @return {number|string} The month number or empty string.
+	 * @private
+	 */
+	static _getMonthNum(dateVal)
+	{
+		const date = VifParser._getDate(dateVal);
+		return date ? date.getMonth() + 1 : '';
+	}
+
+	/**
+	 * Normalizes a date value into a Date object.
+	 * @param {Date|string} dateVal - The date object or string (DD/MM/YYYY).
+	 * @return {Date|null} The Date object or null if invalid.
+	 * @private
+	 */
+	static _getDate(dateVal)
+	{
+		if (!dateVal)
+		{
+			return null;
 		}
 
 		let date;
@@ -402,24 +446,7 @@ class VifParser
 			}
 		}
 
-		if (isNaN(date.getTime()))
-		{
-			return '';
-		}
-
-		let week = parseInt(Utilities.formatDate(date, SpreadsheetApp.getActive().getSpreadsheetTimeZone(), 'w'), 10);
-		const month = date.getMonth(); // 0 = January, 11 = December
-
-		if (month === 0 && week >= 52)
-		{
-			week = 1;
-		}
-		else if (month === 11 && week === 1)
-		{
-			week = 52;
-		}
-
-		return week;
+		return (isNaN(date.getTime())) ? null : date;
 	}
 
 	/**
