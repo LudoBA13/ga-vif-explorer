@@ -1,7 +1,5 @@
 class VifParser
 {
-	static _timeZone = null;
-
 	/**
 	 * Gets the spreadsheet timezone, cached for the duration of the execution.
 	 * @return {string} The timezone string.
@@ -492,15 +490,6 @@ class VifParser
 		return date ? date.getMonth() + 1 : '';
 	}
 
-	static _lastDateStr = '';
-	static _lastDateObj = null;
-
-	/**
-	 * Normalizes a date value into a Date object.
-	 * @param {Date|string} dateVal - The date object or string (DD/MM/YYYY).
-	 * @return {Date|null} The Date object or null if invalid.
-	 * @private
-	 */
 	static _getDate(dateVal)
 	{
 		if (!dateVal)
@@ -667,6 +656,11 @@ class VifParser
 		}
 	}
 }
+
+// Static property initializers for GAS compatibility
+VifParser._timeZone = null;
+VifParser._lastDateStr = '';
+VifParser._lastDateObj = null;
 
 /**
  * Refreshes the 'VIF_BL_Stats' sheet based on the data in 'VIF_BL'.
