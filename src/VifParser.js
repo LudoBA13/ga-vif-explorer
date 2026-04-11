@@ -624,11 +624,6 @@ class VifParser
 				if (actualCols === 0 && next.value)
 				{
 					actualCols = next.value.length;
-					const currentMaxCols = sheet.getMaxColumns();
-					if (actualCols > currentMaxCols)
-					{
-						throw new Error(`Le dataset contient ${actualCols} colonnes, mais la feuille '${sheetName}' n'en a que ${currentMaxCols}. Veuillez agrandir la feuille manuellement.`);
-					}
 				}
 
 				if (chunk.length >= CHUNK_SIZE)
