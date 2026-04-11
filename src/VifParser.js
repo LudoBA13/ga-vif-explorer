@@ -688,9 +688,9 @@ function refreshBLStats()
 		const statsRows = VifParser.generateStatsRows(data, gid);
 		VifParser.writeToSheet('VIF_BL_Stats', statsRows, { activate: true });
 
-		const duration = new Date().getTime() - startTime;
+		const duration = Math.ceil((new Date().getTime() - startTime) / 1000);
 		const ui = SpreadsheetApp.getUi();
-		ui.alert('Succès', `Les statistiques BL ont été rafraîchies (en ${duration} ms).`, ui.ButtonSet.OK);
+		ui.alert('Succès', `Les statistiques BL ont été rafraîchies (en ${duration} s).`, ui.ButtonSet.OK);
 	}
 	catch (e)
 	{
@@ -726,8 +726,8 @@ function processUpload(fileObj)
 		const statsRows = VifParser.generateStatsRows(parsedData, gid);
 		VifParser.writeToSheet('VIF_BL_Stats', statsRows, { activate: true });
 
-		const duration = new Date().getTime() - startTime;
-		return `Importation réussie : ${parsedData.length - 1} lignes traitées (en ${duration} ms).`;
+		const duration = Math.ceil((new Date().getTime() - startTime) / 1000);
+		return `Importation réussie : ${parsedData.length - 1} lignes traitées (en ${duration} s).`;
 	}
 	catch (e)
 	{
@@ -758,9 +758,9 @@ function refreshWeeklyStats()
 		{
 			VifParser.writeToSheet('VIF_BL_Stats_Weekly', weeklyStats, { activate: true });
 
-			const duration = new Date().getTime() - startTime;
+			const duration = Math.ceil((new Date().getTime() - startTime) / 1000);
 			const ui = SpreadsheetApp.getUi();
-			ui.alert('Succès', `Les statistiques hebdomadaires ont été rafraîchies (en ${duration} ms).`, ui.ButtonSet.OK);
+			ui.alert('Succès', `Les statistiques hebdomadaires ont été rafraîchies (en ${duration} s).`, ui.ButtonSet.OK);
 		}
 	}
 	catch (e)
