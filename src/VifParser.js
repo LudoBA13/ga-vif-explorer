@@ -453,8 +453,9 @@ class VifParser
 	 * Handles sheet creation/selection and data injection.
 	 * @param {string} sheetName - The name of the target sheet.
 	 * @param {string[][]} data - The 2D array of data to write.
+	 * @param {boolean} [activate=false] - Whether to activate the sheet after writing.
 	 */
-	static writeToSheet(sheetName, data)
+	static writeToSheet(sheetName, data, activate = false)
 	{
 		const ss = SpreadsheetApp.getActiveSpreadsheet();
 		let sheet = ss.getSheetByName(sheetName);
@@ -473,10 +474,6 @@ class VifParser
 		{
 			sheet.insertColumnsAfter(currentMaxCols, cols - currentMaxCols);
 		}
-		else if (cols < currentMaxCols)
-		{
-			sheet.deleteColumns(cols + 1, currentMaxCols - cols);
-		}
 
 		// Sync Rows
 		const currentMaxRows = sheet.getMaxRows();
@@ -484,10 +481,14 @@ class VifParser
 		{
 			sheet.insertRowsAfter(currentMaxRows, rows - currentMaxRows);
 		}
-		else if (rows < currentMaxRows)
+		else if (currentMaxRows > rows + 1000)
 		{
+			// Only delete rows if the excess is significant to avoid slow operations
 			sheet.deleteRows(rows + 1, currentMaxRows - rows);
 		}
+
+		// Fast clear of previous content
+		sheet.clearContents();
 
 		const CHUNK_SIZE = 5000;
 		for (let i = 0; i < rows; i += CHUNK_SIZE)
@@ -496,7 +497,10 @@ class VifParser
 			sheet.getRange(i + 1, 1, chunk.length, cols).setValues(chunk);
 		}
 
-		sheet.activate();
+		if (activate)
+		{
+			sheet.activate();
+		}
 	}
 }
 
@@ -526,21 +530,22 @@ function refreshBLStats()
 		const headers = VifParser.STATS_HEADERS;
 		statsRows.push(headers);
 
+		const blColIdx = data[0].indexOf('n° BL');
+		const colLetter = blColIdx !== -1 ? String.fromCharCode(65 + blColIdx) : 'C';
+
 		for (const stat of VifParser.parseBLStats(data))
 		{
 			statsRows.push(headers.map(h => {
 				if (h === 'n° BL')
 				{
 					// Create a hyperlink to the specific row in VIF_BL sheet
-					const blColIdx = data[0].indexOf('n° BL');
-					const colLetter = blColIdx !== -1 ? String.fromCharCode(65 + blColIdx) : 'C';
 					return `=HYPERLINK("#gid=${gid}&range=${colLetter}${stat._row}"; "${stat[h]}")`;
 				}
 				return stat[h];
 			}));
 		}
 
-		VifParser.writeToSheet('VIF_BL_Stats', statsRows);
+		VifParser.writeToSheet('VIF_BL_Stats', statsRows, true);
 
 		const ui = SpreadsheetApp.getUi();
 		ui.alert('Succès', 'Les statistiques BL ont été rafraîchies.', ui.ButtonSet.OK);
@@ -575,19 +580,20 @@ function processUpload(fileObj)
 		const headers = VifParser.STATS_HEADERS;
 		statsRows.push(headers);
 
+		const blColIdx = parsedData[0].indexOf('n° BL');
+		const colLetter = blColIdx !== -1 ? String.fromCharCode(65 + blColIdx) : 'C';
+
 		for (const stat of VifParser.parseBLStats(parsedData))
 		{
 			statsRows.push(headers.map(h => {
 				if (h === 'n° BL')
 				{
-					const blColIdx = parsedData[0].indexOf('n° BL');
-					const colLetter = blColIdx !== -1 ? String.fromCharCode(65 + blColIdx) : 'C';
 					return `=HYPERLINK("#gid=${gid}&range=${colLetter}${stat._row}"; "${stat[h]}")`;
 				}
 				return stat[h];
 			}));
 		}
-		VifParser.writeToSheet('VIF_BL_Stats', statsRows);
+		VifParser.writeToSheet('VIF_BL_Stats', statsRows, true);
 
 		return 'Importation réussie : ' + (parsedData.length - 1) + ' lignes traitées.';
 	}
@@ -617,7 +623,7 @@ function refreshWeeklyStats()
 
 		if (weeklyStats.length > 0)
 		{
-			VifParser.writeToSheet('VIF_BL_Stats_Weekly', weeklyStats);
+			VifParser.writeToSheet('VIF_BL_Stats_Weekly', weeklyStats, true);
 
 			const ui = SpreadsheetApp.getUi();
 			ui.alert('Succès', 'Les statistiques hebdomadaires ont été rafraîchies.', ui.ButtonSet.OK);
