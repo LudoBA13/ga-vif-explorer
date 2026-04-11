@@ -667,6 +667,7 @@ VifParser._lastDateObj = null;
  */
 function refreshBLStats()
 {
+	const startTime = new Date().getTime();
 	try
 	{
 		const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -687,8 +688,9 @@ function refreshBLStats()
 		const statsRows = VifParser.generateStatsRows(data, gid);
 		VifParser.writeToSheet('VIF_BL_Stats', statsRows, { activate: true });
 
+		const duration = new Date().getTime() - startTime;
 		const ui = SpreadsheetApp.getUi();
-		ui.alert('Succès', 'Les statistiques BL ont été rafraîchies.', ui.ButtonSet.OK);
+		ui.alert('Succès', `Les statistiques BL ont été rafraîchies (en ${duration} ms).`, ui.ButtonSet.OK);
 	}
 	catch (e)
 	{
@@ -702,6 +704,7 @@ function refreshBLStats()
 */
 function processUpload(fileObj)
 {
+	const startTime = new Date().getTime();
 	try
 	{
 		const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -723,7 +726,8 @@ function processUpload(fileObj)
 		const statsRows = VifParser.generateStatsRows(parsedData, gid);
 		VifParser.writeToSheet('VIF_BL_Stats', statsRows, { activate: true });
 
-		return 'Importation réussie : ' + (parsedData.length - 1) + ' lignes traitées.';
+		const duration = new Date().getTime() - startTime;
+		return `Importation réussie : ${parsedData.length - 1} lignes traitées (en ${duration} ms).`;
 	}
 	catch (e)
 	{
@@ -736,6 +740,7 @@ function processUpload(fileObj)
  */
 function refreshWeeklyStats()
 {
+	const startTime = new Date().getTime();
 	try
 	{
 		const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -753,8 +758,9 @@ function refreshWeeklyStats()
 		{
 			VifParser.writeToSheet('VIF_BL_Stats_Weekly', weeklyStats, { activate: true });
 
+			const duration = new Date().getTime() - startTime;
 			const ui = SpreadsheetApp.getUi();
-			ui.alert('Succès', 'Les statistiques hebdomadaires ont été rafraîchies.', ui.ButtonSet.OK);
+			ui.alert('Succès', `Les statistiques hebdomadaires ont été rafraîchies (en ${duration} ms).`, ui.ButtonSet.OK);
 		}
 	}
 	catch (e)
