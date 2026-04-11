@@ -31,6 +31,22 @@ class VifParser
 		return ['Sec', 'Frais', 'Surgelé', 'F&L', 'Proxidon', 'Complément'];
 	}
 
+	static get IGNORED_ARTICLES()
+	{
+		return [
+			'5010010', // Articles de collecte gardés
+			'6010070'  // Materiel autre
+		];
+	}
+
+	static get SPECIAL_FAMILY_CHAR()
+	{
+		return {
+			'4210011': '2', // Plat cuisiné viande ambiant => Frais
+			'4710001': '2'  // Oeufs ambiants => Frais
+		};
+	}
+
 	/**
 	 * Aggregates statistics into weekly summaries.
 	 * @param {string[][]} statsData - The 2D array of 'VIF_BL_Stats' data (with headers).
@@ -108,9 +124,12 @@ class VifParser
 
 		for (const entry of sortedEntries)
 		{
-			resultRows.push(weeklyHeaders.map(h => {
-				return entry[h];
-			}));
+			const row = new Array(weeklyHeaders.length);
+			for (let j = 0; j < weeklyHeaders.length; j++)
+			{
+				row[j] = entry[weeklyHeaders[j]];
+			}
+			resultRows.push(row);
 		}
 
 		return resultRows;
@@ -248,19 +267,8 @@ class VifParser
 		let currentBL = null;
 		let stats = null;
 
-		const ignoredArticles = [
-			// Articles de collecte gardés
-			'5010010',
-			// Materiel autre
-			'6010070'
-		];
-
-		const specialFamilyChar = {
-			// Plat cuisiné viande ambiant => Frais
-			'4210011' : '2',
-			// Oeufs ambiants => Frais
-			'4710001' : '2'
-		};
+		const ignoredArticles = VifParser.IGNORED_ARTICLES;
+		const specialFamilyChar = VifParser.SPECIAL_FAMILY_CHAR;
 
 		let dateCache = {
 			str: '',
@@ -411,6 +419,34 @@ class VifParser
 			return (stats['Produits Sec'] - stats['Lait ambiant'] <= 3) ? 'Complément' : 'Sec';
 		}
 		return '';
+	}
+
+	/**
+	 * Generates formatted statistics rows with hyperlinks.
+	 * @param {string[][]} data - The source BL data.
+	 * @param {number|string} gid - The GID of the source sheet.
+	 * @return {string[][]} The formatted statistics rows.
+	 */
+	static generateStatsRows(data, gid)
+	{
+		const statsRows = [];
+		const headers = VifParser.STATS_HEADERS;
+		statsRows.push(headers);
+
+		const blColIdx = data[0].indexOf('n° BL');
+		const colLetter = blColIdx !== -1 ? String.fromCharCode(65 + blColIdx) : 'C';
+
+		for (const stat of VifParser.parseBLStats(data))
+		{
+			statsRows.push(headers.map(h => {
+				if (h === 'n° BL')
+				{
+					return `=HYPERLINK("#gid=${gid}&range=${colLetter}${stat._row}"; "${stat[h]}")`;
+				}
+				return stat[h];
+			}));
+		}
+		return statsRows;
 	}
 
 	/**
@@ -578,25 +614,7 @@ function refreshBLStats()
 			throw new Error("La feuille 'VIF_BL' est vide.");
 		}
 
-		const statsRows = [];
-		const headers = VifParser.STATS_HEADERS;
-		statsRows.push(headers);
-
-		const blColIdx = data[0].indexOf('n° BL');
-		const colLetter = blColIdx !== -1 ? String.fromCharCode(65 + blColIdx) : 'C';
-
-		for (const stat of VifParser.parseBLStats(data))
-		{
-			statsRows.push(headers.map(h => {
-				if (h === 'n° BL')
-				{
-					// Create a hyperlink to the specific row in VIF_BL sheet
-					return `=HYPERLINK("#gid=${gid}&range=${colLetter}${stat._row}"; "${stat[h]}")`;
-				}
-				return stat[h];
-			}));
-		}
-
+		const statsRows = VifParser.generateStatsRows(data, gid);
 		VifParser.writeToSheet('VIF_BL_Stats', statsRows, true);
 
 		const ui = SpreadsheetApp.getUi();
@@ -628,23 +646,7 @@ function processUpload(fileObj)
 		const gid = blSheet.getSheetId();
 
 		// Import BL statistics
-		const statsRows = [];
-		const headers = VifParser.STATS_HEADERS;
-		statsRows.push(headers);
-
-		const blColIdx = parsedData[0].indexOf('n° BL');
-		const colLetter = blColIdx !== -1 ? String.fromCharCode(65 + blColIdx) : 'C';
-
-		for (const stat of VifParser.parseBLStats(parsedData))
-		{
-			statsRows.push(headers.map(h => {
-				if (h === 'n° BL')
-				{
-					return `=HYPERLINK("#gid=${gid}&range=${colLetter}${stat._row}"; "${stat[h]}")`;
-				}
-				return stat[h];
-			}));
-		}
+		const statsRows = VifParser.generateStatsRows(parsedData, gid);
 		VifParser.writeToSheet('VIF_BL_Stats', statsRows, true);
 
 		return 'Importation réussie : ' + (parsedData.length - 1) + ' lignes traitées.';
