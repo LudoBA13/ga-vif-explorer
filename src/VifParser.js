@@ -539,12 +539,17 @@ class VifParser
 
 	/**
 	 * Handles sheet creation/selection and data injection.
+	 * Supports both 2D arrays and Iterators (Generators).
 	 * @param {string} sheetName - The name of the target sheet.
-	 * @param {string[][]} data - The 2D array of data to write.
-	 * @param {boolean} [activate=false] - Whether to activate the sheet after writing.
+	 * @param {string[][]|Iterator} data - The data to write.
+	 * @param {Object} options - Options for writing.
+	 * @param {boolean} [options.activate=false] - Whether to activate the sheet after writing.
+	 * @param {number} [options.expectedRows] - Optional hint for the number of rows (useful for Iterators).
+	 * @param {number} [options.expectedCols] - Optional hint for the number of columns.
 	 */
-	static writeToSheet(sheetName, data, activate = false)
+	static writeToSheet(sheetName, data, options = {})
 	{
+		const activate = options.activate || false;
 		const ss = SpreadsheetApp.getActiveSpreadsheet();
 		let sheet = ss.getSheetByName(sheetName);
 
@@ -553,36 +558,107 @@ class VifParser
 			sheet = ss.insertSheet(sheetName);
 		}
 
-		const rows = data.length;
-		const cols = data[0].length;
+		const isIterator = (typeof data.next === 'function');
+		let currentData = null;
+		let numRows = 0;
+		let numCols = 0;
 
-		// Sync Columns
-		const currentMaxCols = sheet.getMaxColumns();
-		if (cols > currentMaxCols)
+		if (!isIterator)
 		{
-			sheet.insertColumnsAfter(currentMaxCols, cols - currentMaxCols);
+			currentData = data;
+			numRows = currentData.length;
+			numCols = numRows > 0 ? currentData[0].length : 0;
+		}
+		else
+		{
+			numRows = options.expectedRows || 0;
+			numCols = options.expectedCols || 0;
 		}
 
-		// Sync Rows
-		const currentMaxRows = sheet.getMaxRows();
-		if (rows > currentMaxRows)
+		// Sync Columns (if we have a hint or data)
+		if (numCols > 0)
 		{
-			sheet.insertRowsAfter(currentMaxRows, rows - currentMaxRows);
+			const currentMaxCols = sheet.getMaxColumns();
+			if (numCols > currentMaxCols)
+			{
+				sheet.insertColumnsAfter(currentMaxCols, numCols - currentMaxCols);
+			}
 		}
-		else if (currentMaxRows > rows + 1000)
+
+		// Sync Rows (if we have a hint or data)
+		if (numRows > 0)
 		{
-			// Only delete rows if the excess is significant to avoid slow operations
-			sheet.deleteRows(rows + 1, currentMaxRows - rows);
+			const currentMaxRows = sheet.getMaxRows();
+			if (numRows > currentMaxRows)
+			{
+				sheet.insertRowsAfter(currentMaxRows, numRows - currentMaxRows);
+			}
+			else if (currentMaxRows > numRows + 1000)
+			{
+				sheet.deleteRows(numRows + 1, currentMaxRows - numRows);
+			}
 		}
 
 		// Fast clear of previous content
 		sheet.clearContents();
 
 		const CHUNK_SIZE = 5000;
-		for (let i = 0; i < rows; i += CHUNK_SIZE)
+		if (!isIterator)
 		{
-			const chunk = data.slice(i, i + CHUNK_SIZE);
-			sheet.getRange(i + 1, 1, chunk.length, cols).setValues(chunk);
+			for (let i = 0; i < numRows; i += CHUNK_SIZE)
+			{
+				const chunk = currentData.slice(i, i + CHUNK_SIZE);
+				sheet.getRange(i + 1, 1, chunk.length, numCols).setValues(chunk);
+			}
+		}
+		else
+		{
+			let rowIndex = 1;
+			let chunk = [];
+			let actualCols = numCols;
+
+			let next = data.next();
+			while (!next.done)
+			{
+				chunk.push(next.value);
+				if (actualCols === 0 && next.value)
+				{
+					actualCols = next.value.length;
+				}
+
+				if (chunk.length >= CHUNK_SIZE)
+				{
+					// Check if we need more rows
+					const maxRows = sheet.getMaxRows();
+					if (rowIndex + chunk.length - 1 > maxRows)
+					{
+						sheet.insertRowsAfter(maxRows, CHUNK_SIZE);
+					}
+					sheet.getRange(rowIndex, 1, chunk.length, actualCols).setValues(chunk);
+					rowIndex += chunk.length;
+					chunk = [];
+				}
+				next = data.next();
+			}
+
+			if (chunk.length > 0)
+			{
+				const maxRows = sheet.getMaxRows();
+				if (rowIndex + chunk.length - 1 > maxRows)
+				{
+					sheet.insertRowsAfter(maxRows, chunk.length);
+				}
+				sheet.getRange(rowIndex, 1, chunk.length, actualCols).setValues(chunk);
+				rowIndex += chunk.length;
+			}
+
+			// Clean up excess rows if we didn't know the exact count
+			const finalMaxRows = sheet.getMaxRows();
+			const finalRows = rowIndex - 1;
+			if (finalMaxRows > finalRows + 1000)
+			{
+				sheet.deleteRows(finalRows + 1, finalMaxRows - finalRows);
+			}
 		}
 
 		if (activate)
@@ -615,7 +691,7 @@ function refreshBLStats()
 		}
 
 		const statsRows = VifParser.generateStatsRows(data, gid);
-		VifParser.writeToSheet('VIF_BL_Stats', statsRows, true);
+		VifParser.writeToSheet('VIF_BL_Stats', statsRows, { activate: true });
 
 		const ui = SpreadsheetApp.getUi();
 		ui.alert('Succès', 'Les statistiques BL ont été rafraîchies.', ui.ButtonSet.OK);
@@ -638,16 +714,20 @@ function processUpload(fileObj)
 		const blob = Utilities.newBlob(Utilities.base64Decode(fileObj.data), fileObj.mimeType);
 		const content = blob.getDataAsString('ISO-8859-1');
 
-		// Import detailed BL data
-		const parsedData = VifParser.parseBL(content);
-		VifParser.writeToSheet('VIF_BL', parsedData);
+		// Stream raw BL data to 'VIF_BL'
+		const blEntries = VifParser._parseBLEntries(content);
+		VifParser.writeToSheet('VIF_BL', blEntries);
 
 		const blSheet = ss.getSheetByName('VIF_BL');
 		const gid = blSheet.getSheetId();
 
+		// Now that it's in the sheet, read it back for stats
+		// (This is safer than trying to branch the generator which is complex in JS)
+		const parsedData = blSheet.getDataRange().getValues();
+
 		// Import BL statistics
 		const statsRows = VifParser.generateStatsRows(parsedData, gid);
-		VifParser.writeToSheet('VIF_BL_Stats', statsRows, true);
+		VifParser.writeToSheet('VIF_BL_Stats', statsRows, { activate: true });
 
 		return 'Importation réussie : ' + (parsedData.length - 1) + ' lignes traitées.';
 	}
@@ -677,7 +757,7 @@ function refreshWeeklyStats()
 
 		if (weeklyStats.length > 0)
 		{
-			VifParser.writeToSheet('VIF_BL_Stats_Weekly', weeklyStats, true);
+			VifParser.writeToSheet('VIF_BL_Stats_Weekly', weeklyStats, { activate: true });
 
 			const ui = SpreadsheetApp.getUi();
 			ui.alert('Succès', 'Les statistiques hebdomadaires ont été rafraîchies.', ui.ButtonSet.OK);
