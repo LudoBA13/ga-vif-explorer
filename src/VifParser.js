@@ -575,13 +575,13 @@ class VifParser
 			numCols = options.expectedCols || 0;
 		}
 
-		// Sync Columns (if we have a hint or data)
+		// Check Columns (if we have a hint or data)
 		if (numCols > 0)
 		{
 			const currentMaxCols = sheet.getMaxColumns();
 			if (numCols > currentMaxCols)
 			{
-				sheet.insertColumnsAfter(currentMaxCols, numCols - currentMaxCols);
+				throw new Error(`Le dataset contient ${numCols} colonnes, mais la feuille '${sheetName}' n'en a que ${currentMaxCols}. Veuillez agrandir la feuille manuellement.`);
 			}
 		}
 
@@ -624,6 +624,11 @@ class VifParser
 				if (actualCols === 0 && next.value)
 				{
 					actualCols = next.value.length;
+					const currentMaxCols = sheet.getMaxColumns();
+					if (actualCols > currentMaxCols)
+					{
+						throw new Error(`Le dataset contient ${actualCols} colonnes, mais la feuille '${sheetName}' n'en a que ${currentMaxCols}. Veuillez agrandir la feuille manuellement.`);
+					}
 				}
 
 				if (chunk.length >= CHUNK_SIZE)
