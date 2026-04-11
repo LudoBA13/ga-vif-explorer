@@ -1,5 +1,21 @@
 class VifParser
 {
+	static _timeZone = null;
+
+	/**
+	 * Gets the spreadsheet timezone, cached for the duration of the execution.
+	 * @return {string} The timezone string.
+	 * @private
+	 */
+	static _getTimeZone()
+	{
+		if (!VifParser._timeZone)
+		{
+			VifParser._timeZone = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+		}
+		return VifParser._timeZone;
+	}
+
 	static get STATS_HEADERS()
 	{
 		return [
@@ -132,6 +148,7 @@ class VifParser
 			bl: '',
 			cde: ''
 		};
+		let currentWeek = '';
 
 		yield [
 			'Code VIF', 'Date', 'n° BL', 'n° Cde', 'Article',
@@ -189,10 +206,12 @@ class VifParser
 			const blVal = cols[1]?.trim();
 			const articleVal = cols[3]?.trim();
 
-			if (dateVal)
+			if (dateVal && dateVal !== currentState.date)
 			{
 				currentState.date = dateVal;
+				currentWeek = VifParser._getISOWeek(dateVal);
 			}
+
 			if (blVal)
 			{
 				currentState.bl = blVal;
@@ -213,7 +232,7 @@ class VifParser
 					cols[7]?.trim() || '',
 					cols[8]?.trim() || '',
 					cols[9]?.trim() || '',
-					VifParser._getISOWeek(currentState.date)
+					currentWeek
 				];
 			}
 		}
@@ -243,10 +262,19 @@ class VifParser
 			'4710001' : '2'
 		};
 
+		let dateCache = {
+			str: '',
+			obj: null,
+			month: '',
+			week: '',
+			planning: ''
+		};
+
 		for (let i = 1; i < data.length; i++) // Skip headers
 		{
 			const row = data[i];
 			const bl = row[2];
+			const dateStr = String(row[1] || '');
 			const article = row[4];
 			const articleStr = String(article);
 
@@ -262,11 +290,24 @@ class VifParser
 					stats['Type BL'] = VifParser._determineBLType(stats);
 					yield stats;
 				}
+
+				if (dateStr !== dateCache.str)
+				{
+					const dateObj = VifParser._getDate(dateStr);
+					dateCache = {
+						str: dateStr,
+						obj: dateObj,
+						month: VifParser._getMonthNum(dateStr),
+						week: VifParser._getISOWeek(dateStr),
+						planning: (typeof dateToPlanning === 'function' && dateObj) ? dateToPlanning(dateObj) : ''
+					};
+				}
+
 				currentBL = bl;
 				stats = {
 					'Code VIF': row[0],
-					'Date': row[1],
-					'Month': VifParser._getMonthNum(row[1]),
+					'Date': dateStr,
+					'Month': dateCache.month,
 					'n° BL': bl,
 					'_row': i + 1, // Store the sheet row index (internal use)
 					'_articles': new Set(), // Track processed articles for this BL
@@ -280,7 +321,8 @@ class VifParser
 					'Produits CNES': 0,
 					'Produits Proxidon': 0,
 					'Lait ambiant': 0,
-					'Week': row[11] || VifParser._getISOWeek(row[1])
+					'Week': row[11] || dateCache.week,
+					'Planning Code': dateCache.planning
 				};
 			}
 
@@ -387,7 +429,7 @@ class VifParser
 			return '';
 		}
 
-		let week = parseInt(Utilities.formatDate(date, SpreadsheetApp.getActive().getSpreadsheetTimeZone(), 'w'), 10);
+		let week = parseInt(Utilities.formatDate(date, VifParser._getTimeZone(), 'w'), 10);
 		const month = date.getMonth(); // 0 = January, 11 = December
 
 		if (month === 0 && week >= 52)
@@ -414,6 +456,9 @@ class VifParser
 		return date ? date.getMonth() + 1 : '';
 	}
 
+	static _lastDateStr = '';
+	static _lastDateObj = null;
+
 	/**
 	 * Normalizes a date value into a Date object.
 	 * @param {Date|string} dateVal - The date object or string (DD/MM/YYYY).
@@ -427,26 +472,33 @@ class VifParser
 			return null;
 		}
 
-		let date;
 		if (dateVal instanceof Date)
 		{
-			date = dateVal;
+			return dateVal;
+		}
+
+		const dateStr = String(dateVal);
+		if (dateStr === VifParser._lastDateStr)
+		{
+			return VifParser._lastDateObj;
+		}
+
+		let date;
+		const parts = dateStr.split('/');
+		if (parts.length === 3)
+		{
+			// Assume DD/MM/YYYY
+			date = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
 		}
 		else
 		{
-			const parts = String(dateVal).split('/');
-			if (parts.length === 3)
-			{
-				// Assume DD/MM/YYYY
-				date = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
-			}
-			else
-			{
-				date = new Date(dateVal);
-			}
+			date = new Date(dateVal);
 		}
 
-		return (isNaN(date.getTime())) ? null : date;
+		const result = (isNaN(date.getTime())) ? null : date;
+		VifParser._lastDateStr = dateStr;
+		VifParser._lastDateObj = result;
+		return result;
 	}
 
 	/**
