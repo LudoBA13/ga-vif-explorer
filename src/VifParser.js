@@ -239,7 +239,7 @@ class VifParser
 			{
 				yield [
 					currentState.customerID,
-					currentState.date,
+					VifParser._getDate(currentState.date) || currentState.date,
 					currentState.bl,
 					currentState.cde,
 					articleVal,
@@ -312,7 +312,7 @@ class VifParser
 				currentBL = bl;
 				stats = {
 					'Code VIF': row[0],
-					'Date': dateStr,
+					'Date': dateCache.obj || dateStr,
 					'Month': dateCache.month,
 					'n° BL': bl,
 					'_row': i + 1, // Store the sheet row index (internal use)
