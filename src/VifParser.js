@@ -1,29 +1,5 @@
 class VifParser
 {
-	/**
-	 * Gets the spreadsheet timezone, cached for the duration of the execution.
-	 * @return {string} The timezone string.
-	 * @private
-	 */
-	static _getTimeZone()
-	{
-		if (!VifParser._timeZone)
-		{
-			VifParser._timeZone = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
-		}
-		return VifParser._timeZone;
-	}
-
-	static get STATS_HEADERS()
-	{
-		return [
-			'Code VIF', 'Date', 'Month', 'n° BL', 'Type BL', 'Kg Net',
-			'Produits Sec', 'Produits Frais', 'Produits Surgelé',
-			'Produits F&L', 'Produits FSE', 'Produits CNES',
-			'Produits Proxidon', 'Lait ambiant', 'Week'
-		];
-	}
-
 	static get BL_TYPES()
 	{
 		return ['Sec', 'Frais', 'Surgelé', 'F&L', 'Proxidon', 'Complément'];
@@ -45,351 +21,98 @@ class VifParser
 		};
 	}
 
-	/**
-	 * Aggregates statistics into weekly summaries.
-	 * @param {string[][]} statsData - The 2D array of 'VIF_BL_Stats' data (with headers).
-	 * @return {string[][]} The aggregated weekly statistics with headers.
-	 */
-	static aggregateWeeklyStats(statsData)
+	static get colIdx()
 	{
-		if (!statsData || statsData.length <= 1)
-		{
-			return [];
-		}
-
-		const headers = statsData[0];
-		const codeVifIdx = headers.indexOf('Code VIF');
-		const weekIdx = headers.indexOf('Week');
-		const dateIdx = headers.indexOf('Date');
-		const monthIdx = headers.indexOf('Month');
-		const typeBlIdx = headers.indexOf('Type BL');
-		const kgNetIdx = headers.indexOf('Kg Net');
-
-		if (codeVifIdx === -1 || weekIdx === -1 || typeBlIdx === -1 || kgNetIdx === -1 || dateIdx === -1)
-		{
-			throw new Error("Missing required columns in 'VIF_BL_Stats'.");
-		}
-
-		const weeklyStatsMap = new Map();
-		const blTypes = VifParser.BL_TYPES;
-
-		for (let i = 1; i < statsData.length; i++)
-		{
-			const row = statsData[i];
-			const codeVif = row[codeVifIdx];
-			const week = row[weekIdx];
-			const date = row[dateIdx];
-			const month = monthIdx !== -1 ? row[monthIdx] : VifParser._getMonthNum(date);
-			const typeBl = row[typeBlIdx];
-			const kgNetRaw = row[kgNetIdx];
-			const kgNet = typeof kgNetRaw === 'number' ? kgNetRaw : parseFloat(String(kgNetRaw || '0').replace(',', '.')) || 0;
-
-			const key = `${codeVif}_${week}`;
-			if (!weeklyStatsMap.has(key))
-			{
-				const entry = {
-					'Code VIF': codeVif,
-					'Week': week,
-					'Month': month,
-					'Total Kg Net': 0
-				};
-				blTypes.forEach(t => {
-					entry[t] = 0;
-				});
-				weeklyStatsMap.set(key, entry);
-			}
-
-			const entry = weeklyStatsMap.get(key);
-			entry['Total Kg Net'] += kgNet;
-			if (blTypes.includes(typeBl))
-			{
-				entry[typeBl] += kgNet;
-			}
-		}
-
-		const weeklyHeaders = ['Code VIF', 'Week', 'Month', ...blTypes, 'Total Kg Net'];
-		const resultRows = [weeklyHeaders];
-
-		const sortedEntries = Array.from(weeklyStatsMap.values()).sort((a, b) => {
-			const vifA = String(a['Code VIF']);
-			const vifB = String(b['Code VIF']);
-			if (vifA !== vifB)
-			{
-				return vifA.localeCompare(vifB);
-			}
-			return a['Week'] - b['Week'];
-		});
-
-		for (const entry of sortedEntries)
-		{
-			const row = new Array(weeklyHeaders.length);
-			for (let j = 0; j < weeklyHeaders.length; j++)
-			{
-				row[j] = entry[weeklyHeaders[j]];
-			}
-			resultRows.push(row);
-		}
-
-		return resultRows;
-	}
-
-	/**
-	 * Parses the raw text content from VIF export into a 1NF 2D array.
-	 * @param {string} content - The raw string content of the file.
-	 * @return {string[][]} A 2D array representing the parsed data with headers.
-	 */
-	static parseBL(content)
-	{
-		const result = [];
-		for (const entry of VifParser._parseBLEntries(content))
-		{
-			result.push(entry);
-		}
-		return result;
-	}
-
-	/**
-	 * Private generator to yield entries from the raw VIF content.
-	 * @param {string} content - The raw string content of the file.
-	 * @yields {string[]} A single row of the 2D array.
-	 * @private
-	 */
-	static * _parseBLEntries(content)
-	{
-		const clientRegex = /Client\s*:\s*(\d+)/;
-		const articleRegex = /^\d+$/;
-
-		let currentState = {
-			customerID: '',
-			date: '',
-			bl: '',
-			cde: ''
+		return {
+			DATE:    0,
+			BL:      1,
+			ARTICLE: 3,
+			LIBELLE: 4,
+			LOT:     5,
+			POIDS:   7
 		};
-		let currentWeek = '';
-
-		yield [
-			'Code VIF', 'Date', 'n° BL', 'n° Cde', 'Article',
-			'Libellé', 'Lot', 'Kg Net', 'Kg Brut', 'P', 'COL', 'Week'
-		];
-
-		let start = 0;
-		const contentLength = content.length;
-
-		while (start < contentLength)
-		{
-			let end = content.indexOf('\n', start);
-			if (end === -1)
-			{
-				end = contentLength;
-			}
-
-			let line = content.substring(start, end);
-			if (line.endsWith('\r'))
-			{
-				line = line.substring(0, line.length - 1);
-			}
-			start = end + 1;
-
-			if (line.length === 0 || line.trim().length === 0)
-			{
-				continue;
-			}
-
-			if (line.indexOf('Client :') !== -1)
-			{
-				const clientMatch = line.match(clientRegex);
-				if (clientMatch)
-				{
-					currentState.customerID = clientMatch[1];
-				}
-				continue;
-			}
-
-			// Quick check: data lines MUST have tabs.
-			const tabIdx = line.indexOf('\t');
-			if (tabIdx === -1)
-			{
-				continue;
-			}
-
-			// Skip header/summary lines early
-			if (line.indexOf('Date livr.') !== -1 || line.indexOf('Rappel de la sélection') !== -1)
-			{
-				continue;
-			}
-
-			const cols = line.split('\t');
-			const dateVal = cols[0]?.trim();
-			const blVal = cols[1]?.trim();
-			const articleVal = cols[3]?.trim();
-
-			if (dateVal && dateVal !== currentState.date)
-			{
-				currentState.date = dateVal;
-				currentWeek = VifParser._getISOWeek(dateVal);
-			}
-
-			if (blVal)
-			{
-				currentState.bl = blVal;
-				currentState.cde = cols[2]?.trim() || '';
-			}
-
-			if (articleVal && articleRegex.test(articleVal))
-			{
-				yield [
-					currentState.customerID,
-					VifParser._getDate(currentState.date) || currentState.date,
-					currentState.bl,
-					currentState.cde,
-					articleVal,
-					cols[4]?.trim() || '',
-					cols[5]?.trim() || '',
-					cols[6]?.trim() || '',
-					cols[7]?.trim() || '',
-					cols[8]?.trim() || '',
-					cols[9]?.trim() || '',
-					currentWeek
-				];
-			}
-		}
 	}
 
-	/**
-	 * Computes statistics grouped by 'n° BL' from the parsed 2D data.
-	 * @param {string[][]} data - The 2D array of parsed BL data (with headers).
-	 * @yields {Object} Statistics for a single 'n° BL'.
-	 */
-	static * parseBLStats(data)
+	blRows   = [];
+	itemRows = [];
+
+	static parseBL(input)
 	{
-		let currentBL = null;
-		let stats = null;
-
-		const ignoredArticles = VifParser.IGNORED_ARTICLES;
-		const specialFamilyChar = VifParser.SPECIAL_FAMILY_CHAR;
-
-		let dateCache = {
-			str: '',
-			obj: null,
-			month: '',
-			week: '',
-			planning: ''
-		};
-
-		for (let i = 1; i < data.length; i++) // Skip headers
+		const m = input.match(/^\s*Rappel de la s.*?\nClient : \t\d{5}[^\n]+\n([^\n]+)\n[0-9]{2}\/[0-9]{2}\/[0-9]{2}\t/s);
+		if (!m)
 		{
-			const row = data[i];
-			const bl = row[2];
-			const dateStr = String(row[1] || '');
-			const article = row[4];
-			const articleStr = String(article);
+			throw new Error('Cannot recognize file format');
+		}
 
-			if (ignoredArticles.includes(articleStr))
+		const p = m[1].split("\t");
+		if (p[VifParser.colIdx.DATE]      !== 'Date livr.'
+			|| !p[VifParser.colIdx.BL]?.match(/^n.*BL/)
+			|| p[VifParser.colIdx.ARTICLE] !== 'Article'
+			|| !p[VifParser.colIdx.LIBELLE]?.startsWith('Libell')
+			|| p[VifParser.colIdx.LOT]     !== 'Lot'
+			|| p[VifParser.colIdx.POIDS]   !== 'Kg Brut')
+		{
+			throw new Error('Cannot match column headers');
+		}
+
+		const obj = new this;
+		for (const custData of input.matchAll(/Client : \t.*?\n\n/gs))
+		{
+			obj.parseCustomerData(custData[0]);
+		}
+
+		return obj;
+	}
+
+	parseCustomerData(custData)
+	{
+		const lines = custData.split(/\r?\n/)[Symbol.iterator]();
+
+		// Extract the "Code VIF" value from the first line
+		const currentVif = +lines.next().value.match(/\d+/)[0];
+
+		// Consume the next line of headers
+		lines.next();
+
+		let currentBl, currentBlId, currentDate;
+		for (const line of lines)
+		{
+			const cols = line.split("\t");
+			if (cols.length < 2)
+			{
+				break;
+			}
+			if (cols[VifParser.colIdx.ARTICLE] === '')
 			{
 				continue;
 			}
-
-			if (bl !== currentBL)
+			if (cols[VifParser.colIdx.DATE] !== '')
 			{
-				if (stats)
+				const [d, m, y] = cols[0].split('/');
+				currentDate = [+y + 2000, +m - 1, +d];
+			}
+			if (cols[VifParser.colIdx.BL] !== '')
+			{
+				if (currentBl)
 				{
-					stats['Type BL'] = VifParser._determineBLType(stats);
-					yield stats;
+					this.blRows.push(currentBl);
 				}
-
-				if (dateStr !== dateCache.str)
-				{
-					const dateObj = VifParser._getDate(dateStr);
-					dateCache = {
-						str: dateStr,
-						obj: dateObj,
-						month: VifParser._getMonthNum(dateStr),
-						week: VifParser._getISOWeek(dateStr),
-						planning: (typeof dateToPlanning === 'function' && dateObj) ? dateToPlanning(dateObj) : ''
-					};
-				}
-
-				currentBL = bl;
-				stats = {
-					'Code VIF': row[0],
-					'Date': dateCache.obj || dateStr,
-					'Month': dateCache.month,
-					'n° BL': bl,
-					'_row': i + 1, // Store the sheet row index (internal use)
-					'_articles': new Set(), // Track processed articles for this BL
-					'Type BL': '',
-					'Kg Net': 0,
-					'Produits Sec': 0,
-					'Produits Frais': 0,
-					'Produits Surgelé': 0,
-					'Produits F&L': 0,
-					'Produits FSE': 0,
-					'Produits CNES': 0,
-					'Produits Proxidon': 0,
-					'Lait ambiant': 0,
-					'Week': row[11] || dateCache.week,
-					'Planning Code': dateCache.planning
-				};
+				currentBlId = +cols[1];
+				currentBl = [currentVif, ...currentDate, currentBlId, 0];
 			}
-
-			const kgNetVal = row[7];
-			const kgNet = typeof kgNetVal === 'number' ? kgNetVal : parseFloat(String(kgNetVal || '0').replace(',', '.')) || 0;
-			stats['Kg Net'] += kgNet;
-
-			const lot = row[6];
-			if (lot && String(lot).toLowerCase().startsWith('proxidon'))
-			{
-				++stats['Produits Proxidon'];
-			}
-
-			// Skip frequency counters if this article was already counted for the current BL
-			if (stats._articles.has(articleStr))
-			{
-				continue;
-			}
-			stats._articles.add(articleStr);
-
-			const len = articleStr.length;
-			const familyChar = specialFamilyChar[articleStr] || ((len < 5) ? '' : articleStr.charAt(len - 5));
-
-			if (familyChar === '1')
-			{
-				++stats['Produits Sec'];
-
-				if (/^91....$/.test(articleStr))
-				{
-					++stats['Lait ambiant'];
-				}
-			}
-			else if (familyChar === '2')
-			{
-				++stats['Produits Frais'];
-
-				if (articleStr.startsWith('452'))
-				{
-					++stats['Produits F&L'];
-				}
-			}
-			else if (familyChar === '3')
-			{
-				++stats['Produits Surgelé'];
-			}
-
-			if (articleStr.endsWith('9'))
-			{
-				++stats['Produits FSE'];
-			}
-			else if (articleStr.endsWith('3'))
-			{
-				++stats['Produits CNES'];
-			}
+			const weight = +(cols[VifParser.colIdx.POIDS].replace(',', '.'));
+			currentBl[5] += weight;
+			this.itemRows.push([
+				currentBlId,
+				+cols[VifParser.colIdx.ARTICLE],
+				weight,
+				cols[VifParser.colIdx.LIBELLE]
+			]);
 		}
+		this.blRows.push(currentBl);
 
-		if (stats)
-		{
-			stats['Type BL'] = VifParser._determineBLType(stats);
-			yield stats;
-		}
+		console.log(this.blRows);
+		console.log(this.itemRows);
 	}
 
 	/**
@@ -418,354 +141,74 @@ class VifParser
 		}
 		return '';
 	}
-
-	/**
-	 * Generates formatted statistics rows with hyperlinks.
-	 * @param {string[][]} data - The source BL data.
-	 * @param {number|string} gid - The GID of the source sheet.
-	 * @return {string[][]} The formatted statistics rows.
-	 */
-	static generateStatsRows(data, gid)
-	{
-		const statsRows = [];
-		const headers = VifParser.STATS_HEADERS;
-		statsRows.push(headers);
-
-		const blColIdx = data[0].indexOf('n° BL');
-		const colLetter = blColIdx !== -1 ? String.fromCharCode(65 + blColIdx) : 'C';
-
-		for (const stat of VifParser.parseBLStats(data))
-		{
-			statsRows.push(headers.map(h => {
-				if (h === 'n° BL')
-				{
-					return `=HYPERLINK("#gid=${gid}&range=${colLetter}${stat._row}"; "${stat[h]}")`;
-				}
-				return stat[h];
-			}));
-		}
-		return statsRows;
-	}
-
-	/**
-	 * Returns the week number for a given date, adjusted to avoid year-overlap.
-	 * If a date in January has a week >= 52, it returns 1.
-	 * If a date in December has a week == 1, it returns 52.
-	 * @param {Date|string} dateVal - The date object or string (DD/MM/YYYY).
-	 * @return {number|string} The adjusted week number.
-	 * @private
-	 */
-	static _getISOWeek(dateVal)
-	{
-		const date = VifParser._getDate(dateVal);
-		if (!date)
-		{
-			return '';
-		}
-
-		let week = parseInt(Utilities.formatDate(date, VifParser._getTimeZone(), 'w'), 10);
-		const month = date.getMonth(); // 0 = January, 11 = December
-
-		if (month === 0 && week >= 52)
-		{
-			week = 1;
-		}
-		else if (month === 11 && week === 1)
-		{
-			week = 52;
-		}
-
-		return week;
-	}
-
-	/**
-	 * Returns the month number (1-12) for a given date.
-	 * @param {Date|string} dateVal - The date object or string (DD/MM/YYYY).
-	 * @return {number|string} The month number or empty string.
-	 * @private
-	 */
-	static _getMonthNum(dateVal)
-	{
-		const date = VifParser._getDate(dateVal);
-		return date ? date.getMonth() + 1 : '';
-	}
-
-	static _getDate(dateVal)
-	{
-		if (!dateVal)
-		{
-			return null;
-		}
-
-		if (dateVal instanceof Date)
-		{
-			return dateVal;
-		}
-
-		const dateStr = String(dateVal);
-		if (dateStr === VifParser._lastDateStr)
-		{
-			return VifParser._lastDateObj;
-		}
-
-		let date;
-		const parts = dateStr.split('/');
-		if (parts.length === 3)
-		{
-			// Assume DD/MM/YYYY
-			date = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
-		}
-		else
-		{
-			date = new Date(dateVal);
-		}
-
-		const result = (isNaN(date.getTime())) ? null : date;
-		VifParser._lastDateStr = dateStr;
-		VifParser._lastDateObj = result;
-		return result;
-	}
-
-	/**
-	 * Handles sheet creation/selection and data injection.
-	 * Supports both 2D arrays and Iterators (Generators).
-	 * @param {string} sheetName - The name of the target sheet.
-	 * @param {string[][]|Iterator} data - The data to write.
-	 * @param {Object} options - Options for writing.
-	 * @param {boolean} [options.activate=false] - Whether to activate the sheet after writing.
-	 * @param {number} [options.expectedRows] - Optional hint for the number of rows (useful for Iterators).
-	 * @param {number} [options.expectedCols] - Optional hint for the number of columns.
-	 */
-	static writeToSheet(sheetName, data, options = {})
-	{
-		const activate = options.activate || false;
-		const ss = SpreadsheetApp.getActiveSpreadsheet();
-		let sheet = ss.getSheetByName(sheetName);
-
-		if (!sheet)
-		{
-			sheet = ss.insertSheet(sheetName);
-		}
-
-		const isIterator = (typeof data.next === 'function');
-		let currentData = null;
-		let numRows = 0;
-		let numCols = 0;
-
-		if (!isIterator)
-		{
-			currentData = data;
-			numRows = currentData.length;
-			numCols = numRows > 0 ? currentData[0].length : 0;
-		}
-		else
-		{
-			numRows = options.expectedRows || 0;
-			numCols = options.expectedCols || 0;
-		}
-
-		// Check Columns (if we have a hint or data)
-		if (numCols > 0)
-		{
-			const currentMaxCols = sheet.getMaxColumns();
-			if (numCols > currentMaxCols)
-			{
-				throw new Error(`Le dataset contient ${numCols} colonnes, mais la feuille '${sheetName}' n'en a que ${currentMaxCols}. Veuillez agrandir la feuille manuellement.`);
-			}
-		}
-
-		// Sync Rows (if we have a hint or data)
-		if (numRows > 0)
-		{
-			const currentMaxRows = sheet.getMaxRows();
-			if (numRows > currentMaxRows)
-			{
-				sheet.insertRowsAfter(currentMaxRows, numRows - currentMaxRows);
-			}
-			else if (currentMaxRows > numRows + 1000)
-			{
-				sheet.deleteRows(numRows + 1, currentMaxRows - numRows);
-			}
-		}
-
-		// Fast clear of previous content
-		sheet.clearContents();
-
-		const CHUNK_SIZE = 5000;
-		if (!isIterator)
-		{
-			for (let i = 0; i < numRows; i += CHUNK_SIZE)
-			{
-				const chunk = currentData.slice(i, i + CHUNK_SIZE);
-				sheet.getRange(i + 1, 1, chunk.length, numCols).setValues(chunk);
-			}
-		}
-		else
-		{
-			let rowIndex = 1;
-			let chunk = [];
-			let actualCols = numCols;
-
-			let next = data.next();
-			while (!next.done)
-			{
-				chunk.push(next.value);
-				if (actualCols === 0 && next.value)
-				{
-					actualCols = next.value.length;
-				}
-
-				if (chunk.length >= CHUNK_SIZE)
-				{
-					// Check if we need more rows
-					const maxRows = sheet.getMaxRows();
-					if (rowIndex + chunk.length - 1 > maxRows)
-					{
-						sheet.insertRowsAfter(maxRows, CHUNK_SIZE);
-					}
-					sheet.getRange(rowIndex, 1, chunk.length, actualCols).setValues(chunk);
-					rowIndex += chunk.length;
-					chunk = [];
-				}
-				next = data.next();
-			}
-
-			if (chunk.length > 0)
-			{
-				const maxRows = sheet.getMaxRows();
-				if (rowIndex + chunk.length - 1 > maxRows)
-				{
-					sheet.insertRowsAfter(maxRows, chunk.length);
-				}
-				sheet.getRange(rowIndex, 1, chunk.length, actualCols).setValues(chunk);
-				rowIndex += chunk.length;
-			}
-
-			// Clean up excess rows if we didn't know the exact count
-			const finalMaxRows = sheet.getMaxRows();
-			const finalRows = rowIndex - 1;
-			if (finalMaxRows > finalRows + 1000)
-			{
-				sheet.deleteRows(finalRows + 1, finalMaxRows - finalRows);
-			}
-		}
-
-		if (activate)
-		{
-			sheet.activate();
-		}
-	}
 }
 
-// Static property initializers for GAS compatibility
-VifParser._timeZone = null;
-VifParser._lastDateStr = '';
-VifParser._lastDateObj = null;
 
-/**
- * Refreshes the 'VIF_BL_Stats' sheet based on the data in 'VIF_BL_Items'.
- */
-function refreshBLStats()
-{
-	const startTime = new Date().getTime();
-	try
-	{
-		const ss = SpreadsheetApp.getActiveSpreadsheet();
-		const blSheet = ss.getSheetByName('VIF_BL_Items');
+VifParser.parseBL(
+`
 
-		if (!blSheet)
-		{
-			throw new Error("La feuille 'VIF_BL_Items' est introuvable.");
-		}
+Rappel de la sélection
+Date livr. :	01/01/2026 -> 18/04/2026	Filtre si Kg Net :	Egal à 0
+Partenaire :	0000000000 -> 9999999988	Filtre si Kg Brut :	Egal à 0
+Etat du BL :	A facturer,Facturé		
+ 	 	 	 
 
-		const gid = blSheet.getSheetId();
-		const data = blSheet.getDataRange().getValues();
-		if (data.length <= 1)
-		{
-			throw new Error("La feuille 'VIF_BL_Items' est vide.");
-		}
 
-		const statsRows = VifParser.generateStatsRows(data, gid);
-		VifParser.writeToSheet('VIF_BL_Stats', statsRows, { activate: true });
 
-		const duration = Math.ceil((new Date().getTime() - startTime) / 1000);
-		const ui = SpreadsheetApp.getUi();
-		ui.alert('Succès', `Les statistiques BL ont été rafraîchies (en ${duration} s).`, ui.ButtonSet.OK);
-	}
-	catch (e)
-	{
-		const ui = SpreadsheetApp.getUi();
-		ui.alert('Erreur', e.toString(), ui.ButtonSet.OK);
-	}
-}
+Client : 	01130004 -		Fondation St Jean de Dieu
+Date livr.	n° BL	n° Cde	Article	Libellé	Lot	Kg Net	Kg Brut	P	COL
+06/01/26	104622	97347	0110041	Patisserie/Viennoiserie	13253330259	22,950	27,000		
+			0210031	Biscuits sucrés	13253330193	25,650	27,000		
+			0610001	Chocolat/Barres chocolatées	13253330010	6,580	7,000		
+			0610001	Chocolat/Barres chocolatées	13253340029	1,880	2,000		
+			1010001	Farine/Maizena	13253330191	20,000	20,000		
+			1110001	Pâtes ambiant	13253340083	17,000	17,000		
+			1110001	Pâtes ambiant	13253350006	77,000	77,000		
+			1110001	Pâtes ambiant	13253350019	206,000	206,000		
+			1110051	Riz long/rond	13253330086	86,400	90,000		
+			1310001	Potages/Soupes ambiants	13253320130	42,300	45,000		
+			1410021	Mayo/Ketchup/Moutarde/Sauces	13253350061	71,100	90,000		
+			1710001	Huile	13253330159	65,960	68,000		
+			1910001	Sucre en morceaux	13253330175	45,000	45,000		
+			2010001	Confitures/Miel/Pâte à tartin.	13253350064	21,760	32,000		
+			2810011	Sodas/Jus de fruits ambiants	13253560003	87,300	90,000		
+			4510001	Cons. légumes ambiant	13253330137	170,100	202,500		
+			4510001	Cons. légumes ambiant	13253360020	56,700	67,500		
+			4810001	Cons. viande/charcuterie amb	13253360022	15,300	17,000		
+			4810001	Cons. viande/charcuterie amb	13253560004	45,900	51,000		
+			6010010	Pdts Hygiène Famille		68,000	68,000		
+						1152,880	1249,000	0	0
+	104669	97548	4630349	Cuisses poulet surg 425 FSE24	13251010027	51,000	51,660	30	5
+			4630549	Steak haché Lot 428 FSE24	13250070006	25,000	25,250	250	5
+			4930149	Filet poiss surg Lot427 FSE24	13251550005	54,000	54,900	90	5
+						130,000	131,810	370	15
+	104682	97554	4210011	Plat cuisiné viande ambiant	13260060004	48,060	54,000		
+			4210011	Plat cuisiné viande ambiant	13260060006	59,630	67,000		
+			4320001	Pdts laitiers lotis réfrigérés	13260060002	85,560	92,000		
+			4320001	Pdts laitiers lotis réfrigérés	13260060005	16,740	18,000		
+			4320001	Pdts laitiers lotis réfrigérés	13260060014	81,840	88,000		
+						291,830	319,000	0	0
+	104685	97557	4520000	Légumes frais non lotis		223,200	240,000		
+						223,200	240,000	0	0
+09/01/26	104826	97638	4520000	Légumes frais non lotis		711,450	765,000		
+						711,450	765,000	0	0
+12/01/26	104919	97659	0910051	Lait ambiant	13253330168	34,000	34,000		6
+			0910051	Lait ambiant	13253340030	66,000	66,000		11
+			0910259	Lait UHT GJ 500 FSE25	13252620004	600,000	600,000	600	100
+						700,000	700,000	600	117
+13/01/26	104985	97733	4210011	Plat cuisiné viande ambiant	13260130008	35,600	40,000		
+			4320001	Pdts laitiers lotis réfrigérés	13260090049	27,900	30,000		
+			4320001	Pdts laitiers lotis réfrigérés	13260130015	51,150	55,000		
+			4320001	Pdts laitiers lotis réfrigérés	13260130016	48,360	52,000		
+			4520000	Légumes frais non lotis		104,160	112,000		
+						267,170	289,000	0	0
+15/01/26	105046	97784	4320001	Pdts laitiers lotis réfrigérés	13260090049	111,600	120,000		
+			4520000	Légumes frais non lotis		269,700	290,000		
+						381,300	410,000	0	0
+16/01/26	105100	97798	1210031	Légumes secs à cuire	13260130003	214,370	221,000		
+						214,370	221,000	0	0
+	105119	97810	4520000	Légumes frais non lotis		177,630	191,000		
+						177,630	191,000	0	0
 
-/**
-* Updated server-side trigger for the upload UI
-*/
-function processUpload(fileObj)
-{
-	const startTime = new Date().getTime();
-	try
-	{
-		const ss = SpreadsheetApp.getActiveSpreadsheet();
-		const blob = Utilities.newBlob(Utilities.base64Decode(fileObj.data), fileObj.mimeType);
-		const content = blob.getDataAsString('ISO-8859-1');
 
-		// Stream raw BL data to 'VIF_BL_Items'
-		const blEntries = VifParser._parseBLEntries(content);
-		VifParser.writeToSheet('VIF_BL_Items', blEntries);
-
-		const blSheet = ss.getSheetByName('VIF_BL_Items');
-		const gid = blSheet.getSheetId();
-
-		// Now that it's in the sheet, read it back for stats
-		// (This is safer than trying to branch the generator which is complex in JS)
-		const parsedData = blSheet.getDataRange().getValues();
-
-		// Import BL statistics
-		const statsRows = VifParser.generateStatsRows(parsedData, gid);
-		VifParser.writeToSheet('VIF_BL_Stats', statsRows, { activate: true });
-
-		const duration = Math.ceil((new Date().getTime() - startTime) / 1000);
-		return `Importation réussie : ${parsedData.length - 1} lignes traitées (en ${duration} s).`;
-	}
-	catch (e)
-	{
-		return 'Erreur : ' + e.toString();
-	}
-}
-
-/**
- * Refreshes the 'VIF_BL_Stats_Weekly' sheet by aggregating 'VIF_BL_Stats' data.
- */
-function refreshWeeklyStats()
-{
-	const startTime = new Date().getTime();
-	try
-	{
-		const ss = SpreadsheetApp.getActiveSpreadsheet();
-		const statsSheet = ss.getSheetByName('VIF_BL_Stats');
-
-		if (!statsSheet)
-		{
-			throw new Error("La feuille 'VIF_BL_Stats' est introuvable.");
-		}
-
-		const statsData = statsSheet.getDataRange().getValues();
-		const weeklyStats = VifParser.aggregateWeeklyStats(statsData);
-
-		if (weeklyStats.length > 0)
-		{
-			VifParser.writeToSheet('VIF_BL_Stats_Weekly', weeklyStats, { activate: true });
-
-			const duration = Math.ceil((new Date().getTime() - startTime) / 1000);
-			const ui = SpreadsheetApp.getUi();
-			ui.alert('Succès', `Les statistiques hebdomadaires ont été rafraîchies (en ${duration} s).`, ui.ButtonSet.OK);
-		}
-	}
-	catch (e)
-	{
-		const ui = SpreadsheetApp.getUi();
-		ui.alert('Erreur', e.toString(), ui.ButtonSet.OK);
-	}
-}
+`);
