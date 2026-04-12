@@ -1,10 +1,5 @@
 class VifParser
 {
-	static get BL_TYPES()
-	{
-		return ['Sec', 'Frais', 'Surgelé', 'F&L', 'Proxidon', 'Complément'];
-	}
-
 	static get IGNORED_ARTICLES()
 	{
 		return [
@@ -33,7 +28,7 @@ class VifParser
 		};
 	}
 
-	blRows   = [['Code VIF', 'Date', 'BL', 'Total Kg Brut', 'Produits Sec', 'Produits Frais', 'Produits Surgelé', 'Nb F&L', 'Nb Lait', 'Nb CNES', 'Nb FSE+', 'Nb Proxidon']];
+	blRows   = [['Code VIF', 'Date', 'BL', 'Type BL', 'Type Passage', 'Total Kg Brut', 'Produits Sec', 'Produits Frais', 'Produits Surgelé', 'Nb F&L', 'Nb Lait', 'Nb CNES', 'Nb FSE+', 'Nb Proxidon']];
 	itemRows = [['BL', 'Article', 'Kg Brut', 'Libellé']];
 
 	static parseBL(input)
@@ -141,6 +136,8 @@ class VifParser
 			bl.vif,
 			bl.date,
 			bl.id,
+			VifParser._determineBLType(bl),
+			VifParser._determinePassageType(bl),
 			bl.weight,
 			bl.pSec,
 			bl.pFrais,
@@ -153,31 +150,46 @@ class VifParser
 		];
 	}
 
-	/**
-	 * Determines the 'Type BL' based on statistics.
-	 * @param {Object} stats - The statistics for a single 'n° BL'.
-	 * @return {string} The determined type.
-	 * @private
-	 */
-	static _determineBLType(stats)
+	static _determineBLType(bl)
 	{
-		if (stats['Nb Proxidon'] > 0)
+		if (bl['Nb Proxidon'] > 0)
 		{
 			return 'Proxidon';
 		}
-		if (stats['Produits Surgelé'] > 0)
+		if (bl['Produits Surgelé'] > 0)
 		{
 			return 'Surgelé';
 		}
-		if (stats['Produits Frais'] > 0)
+		if (bl['Produits Frais'] > 0)
 		{
-			return (stats['Produits Frais'] === stats['Nb F&L']) ? 'F&L' : 'Frais';
+			return 'Frais';
 		}
-		if (stats['Produits Sec'] > 0)
+		if (bl['Produits Sec'] > 0)
 		{
-			return (stats['Produits Sec'] - stats['Nb Lait'] <= 3) ? 'Complément' : 'Sec';
+			return (bl['Produits Sec'] - bl['Nb Lait'] <= 3) ? 'Complément' : 'Sec';
 		}
 		return '';
+	}
+
+	static _determinePassageType(bl)
+	{
+		if (bl['Nb Proxidon'] > 0)
+		{
+			return '??';
+		}
+		if (bl['Produits Surgelé'] > 0)
+		{
+			return 'Su';
+		}
+		if (bl['Produits Frais'] > 0)
+		{
+			return 'Fr';
+		}
+		if (bl['Produits Sec'] > 0)
+		{
+			return 'Se';
+		}
+		return '??';
 	}
 }
 
