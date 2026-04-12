@@ -663,7 +663,7 @@ VifParser._lastDateStr = '';
 VifParser._lastDateObj = null;
 
 /**
- * Refreshes the 'VIF_BL_Stats' sheet based on the data in 'VIF_BL'.
+ * Refreshes the 'VIF_BL_Stats' sheet based on the data in 'VIF_BL_Items'.
  */
 function refreshBLStats()
 {
@@ -671,18 +671,18 @@ function refreshBLStats()
 	try
 	{
 		const ss = SpreadsheetApp.getActiveSpreadsheet();
-		const blSheet = ss.getSheetByName('VIF_BL');
+		const blSheet = ss.getSheetByName('VIF_BL_Items');
 
 		if (!blSheet)
 		{
-			throw new Error("La feuille 'VIF_BL' est introuvable.");
+			throw new Error("La feuille 'VIF_BL_Items' est introuvable.");
 		}
 
 		const gid = blSheet.getSheetId();
 		const data = blSheet.getDataRange().getValues();
 		if (data.length <= 1)
 		{
-			throw new Error("La feuille 'VIF_BL' est vide.");
+			throw new Error("La feuille 'VIF_BL_Items' est vide.");
 		}
 
 		const statsRows = VifParser.generateStatsRows(data, gid);
@@ -711,11 +711,11 @@ function processUpload(fileObj)
 		const blob = Utilities.newBlob(Utilities.base64Decode(fileObj.data), fileObj.mimeType);
 		const content = blob.getDataAsString('ISO-8859-1');
 
-		// Stream raw BL data to 'VIF_BL'
+		// Stream raw BL data to 'VIF_BL_Items'
 		const blEntries = VifParser._parseBLEntries(content);
-		VifParser.writeToSheet('VIF_BL', blEntries);
+		VifParser.writeToSheet('VIF_BL_Items', blEntries);
 
-		const blSheet = ss.getSheetByName('VIF_BL');
+		const blSheet = ss.getSheetByName('VIF_BL_Items');
 		const gid = blSheet.getSheetId();
 
 		// Now that it's in the sheet, read it back for stats
