@@ -129,10 +129,10 @@ class VifParser
 		}
 	}
 
-	_updateBlStats(bl, cols)
+	static _updateBlStats(bl, cols)
 	{
 		const articleId = +cols[VifParser.colIdx.ARTICLE];
-		const family = VifParser.SPECIAL_FAMILY[articleId] || Match.floor(articleId % 100000) % 10;
+		const family = VifParser.SPECIAL_FAMILY[articleId] || Math.floor(articleId % 100000) % 10;
 		if (family === 1)
 		{
 			++bl.pSec;
