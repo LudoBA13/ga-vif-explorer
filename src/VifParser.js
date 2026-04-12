@@ -31,6 +31,16 @@ class VifParser
 	blRows   = [['Code VIF', 'Date', 'BL', 'Type BL', 'Type Passage', 'Total Kg Brut', 'Produits Sec', 'Produits Frais', 'Produits Surgelé', 'Nb F&L', 'Nb Lait', 'Nb CNES', 'Nb FSE+', 'Nb Proxidon']];
 	itemRows = [['BL', 'Article', 'Kg Brut', 'Libellé']];
 
+	getBlRows()
+	{
+		return this.blRows;
+	}
+
+	getItemRows()
+	{
+		return this.itemRows;
+	}
+
 	static parseBL(input)
 	{
 		const m = input.match(/^\s*Rappel de la s.*?\nClient : \t\d{5}[^\n]+\n([^\n]+)\n[0-9]{2}\/[0-9]{2}\/[0-9]{2}\t/s);
@@ -194,7 +204,7 @@ class VifParser
 }
 
 
-VifParser.parseBL(
+const parser=VifParser.parseBL(
 `
 
 Rappel de la sélection
@@ -262,3 +272,4 @@ Date livr.	n° BL	n° Cde	Article	Libellé	Lot	Kg Net	Kg Brut	P	COL
 
 
 `);
+console.log(parser.getItemRows());console.log(parser.getBlRows());
