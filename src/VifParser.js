@@ -95,13 +95,23 @@ class VifParser
 			{
 				if (currentBl)
 				{
-					this.blRows.push(currentBl);
+					this.blRows.push([
+						currentBl.vif,
+						...currentBl.date,
+						currentBl.id,
+						currentBl.weight
+					]);
 				}
-				currentBlId = +cols[1];
-				currentBl = [currentVif, ...currentDate, currentBlId, 0];
+				currentBlId = +cols[VifParser.colIdx.BL];
+				currentBl = {
+					vif:    currentVif,
+					date:   currentDate,
+					id:     currentBlId,
+					weight: 0
+				};
 			}
 			const weight = +(cols[VifParser.colIdx.POIDS].replace(',', '.'));
-			currentBl[5] += weight;
+			currentBl.weight += weight;
 			this.itemRows.push([
 				currentBlId,
 				+cols[VifParser.colIdx.ARTICLE],
@@ -109,7 +119,16 @@ class VifParser
 				cols[VifParser.colIdx.LIBELLE]
 			]);
 		}
-		this.blRows.push(currentBl);
+
+		if (currentBl)
+		{
+			this.blRows.push([
+				currentBl.vif,
+				...currentBl.date,
+				currentBl.id,
+				currentBl.weight
+			]);
+		}
 
 		console.log(this.blRows);
 		console.log(this.itemRows);
