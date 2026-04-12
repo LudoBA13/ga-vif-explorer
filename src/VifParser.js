@@ -33,8 +33,8 @@ class VifParser
 		};
 	}
 
-	blRows   = [];
-	itemRows = [];
+	blRows   = [['Code VIF', 'Date', 'BL', 'Total Kg Brut', 'Produits Sec', 'Produits Frais', 'Produits Surgelé', 'Nb F&L', 'Nb Lait', 'Nb CNES', 'Nb FSE+', 'Nb Proxidon']];
+	itemRows = [['BL', 'Article', 'Kg Brut', 'Libellé']];
 
 	static parseBL(input)
 	{
@@ -95,21 +95,12 @@ class VifParser
 			{
 				if (currentBl)
 				{
-					this.blRows.push([
-						currentBl.vif,
-						...currentBl.date,
-						currentBl.id,
-						currentBl.weight
-					]);
+					this.blRows.push(this.serializeBl(currentBl));
 				}
 				currentBlId = +cols[VifParser.colIdx.BL];
-				currentBl = {
-					vif:    currentVif,
-					date:   currentDate,
-					id:     currentBlId,
-					weight: 0
-				};
+				currentBl = this.createBl(currentVif, currentDate, currentBlId);
 			}
+
 			const weight = +(cols[VifParser.colIdx.POIDS].replace(',', '.'));
 			currentBl.weight += weight;
 			this.itemRows.push([
@@ -122,16 +113,44 @@ class VifParser
 
 		if (currentBl)
 		{
-			this.blRows.push([
-				currentBl.vif,
-				...currentBl.date,
-				currentBl.id,
-				currentBl.weight
-			]);
+			this.blRows.push(this.serializeBl(currentBl));
 		}
+	}
 
-		console.log(this.blRows);
-		console.log(this.itemRows);
+	createBl(vif, date, id)
+	{
+		return {
+			vif:         vif,
+			date:        date,
+			id:          id,
+			weight:      0,
+			pSec:        0,
+			pFrais:      0,
+			pSurgel:     0,
+			cntFl:       0,
+			cntLait:     0,
+			cntCNES:     0,
+			cntFSE:      0,
+			cntProxidon: 0
+		};
+	}
+
+	serializeBl(bl)
+	{
+		return [
+			bl.vif,
+			bl.date,
+			bl.id,
+			bl.weight,
+			bl.pSec,
+			bl.pFrais,
+			bl.pSurgel,
+			bl.cntFl,
+			bl.cntLait,
+			bl.cntCNES,
+			bl.cntFSE,
+			bl.cntProxidon
+		];
 	}
 
 	/**
@@ -142,7 +161,7 @@ class VifParser
 	 */
 	static _determineBLType(stats)
 	{
-		if (stats['Produits Proxidon'] > 0)
+		if (stats['Nb Proxidon'] > 0)
 		{
 			return 'Proxidon';
 		}
@@ -152,11 +171,11 @@ class VifParser
 		}
 		if (stats['Produits Frais'] > 0)
 		{
-			return (stats['Produits Frais'] === stats['Produits F&L']) ? 'F&L' : 'Frais';
+			return (stats['Produits Frais'] === stats['Nb F&L']) ? 'F&L' : 'Frais';
 		}
 		if (stats['Produits Sec'] > 0)
 		{
-			return (stats['Produits Sec'] - stats['Lait ambiant'] <= 3) ? 'Complément' : 'Sec';
+			return (stats['Produits Sec'] - stats['Nb Lait'] <= 3) ? 'Complément' : 'Sec';
 		}
 		return '';
 	}
