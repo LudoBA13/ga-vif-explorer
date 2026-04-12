@@ -2,10 +2,10 @@ class VifParser
 {
 	static get IGNORED_ARTICLES()
 	{
-		return [
-			'5010010', // Articles de collecte gardés
-			'6010070'  // Materiel autre
-		];
+		return {
+			5010010: true, // Articles de collecte gardés
+			6010070: true  // Materiel autre
+		};
 	}
 
 	static get SPECIAL_FAMILY()
