@@ -132,7 +132,8 @@ class VifParser
 	static _updateBlStats(bl, cols)
 	{
 		const articleId = +cols[VifParser.colIdx.ARTICLE];
-		const family = VifParser.SPECIAL_FAMILY[articleId] || Math.floor(articleId % 100000) % 10;
+		const family = VifParser.SPECIAL_FAMILY[articleId] || (Math.floor(articleId / 10000) % 10);
+
 		if (family === 1)
 		{
 			++bl.pSec;
@@ -144,14 +145,14 @@ class VifParser
 		else if (family === 2)
 		{
 			++bl.pFrais;
-			if (articleId >= 4520000 && articleId <= 919999)
+			if (articleId >= 4520000 && articleId <= 4529999)
 			{
 				++bl.cntFl;
 			}
 		}
 		else if (family === 3)
 		{
-			++bl.cntSurgel;
+			++bl.pSurgel;
 		}
 
 		const src = articleId % 9;
@@ -235,7 +236,7 @@ class VifParser
 		{
 			return '??';
 		}
-		if (bl.cntSurgel > 0)
+		if (bl.pSurgel > 0)
 		{
 			return 'Su';
 		}
