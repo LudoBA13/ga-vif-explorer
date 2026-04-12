@@ -8,11 +8,11 @@ class VifParser
 		];
 	}
 
-	static get SPECIAL_FAMILY_CHAR()
+	static get SPECIAL_FAMILY()
 	{
 		return {
-			'4210011': '2', // Plat cuisiné viande ambiant => Frais
-			'4710001': '2'  // Oeufs ambiants => Frais
+			4210011: 2, // Plat cuisiné viande ambiant => Frais
+			4710001: 2  // Oeufs ambiants => Frais
 		};
 	}
 
@@ -28,7 +28,7 @@ class VifParser
 		};
 	}
 
-	blRows   = [['Code VIF', 'Date', 'BL', 'Type BL', 'Type Passage', 'Total Kg Brut', 'Produits Sec', 'Produits Frais', 'Produits Surgelé', 'Nb F&L', 'Nb Lait', 'Nb CNES', 'Nb FSE+', 'Nb Proxidon']];
+	blRows   = [['Code VIF', 'Date', 'BL', 'Type BL', 'Type Passage', 'Total Kg Brut', 'Produits Sec', 'Produits Frais', 'Produits Surgelé', 'Nb F&L', 'Nb Lait Ambiant', 'Nb CNES', 'Nb FSE+', 'Nb Proxidon']];
 	itemRows = [['BL', 'Article', 'Kg Brut', 'Libellé']];
 
 	getBlRows()
@@ -106,19 +106,67 @@ class VifParser
 				currentBl = this.createBl(currentVif, currentDate, currentBlId);
 			}
 
+			const articleId = +cols[VifParser.colIdx.ARTICLE];
+			if (VifParser.IGNORED_ARTICLES[articleId])
+			{
+				continue;
+			}
+
 			const weight = +(cols[VifParser.colIdx.POIDS].replace(',', '.'));
 			currentBl.weight += weight;
 			this.itemRows.push([
 				currentBlId,
-				+cols[VifParser.colIdx.ARTICLE],
+				articleId,
 				weight,
 				cols[VifParser.colIdx.LIBELLE]
 			]);
+			VifParser._updateBlStats(currentBl, cols);
 		}
 
 		if (currentBl)
 		{
 			this.blRows.push(this.serializeBl(currentBl));
+		}
+	}
+
+	_updateBlStats(bl, cols)
+	{
+		const articleId = +cols[VifParser.colIdx.ARTICLE];
+		const family = VifParser.SPECIAL_FAMILY[articleId] || Match.floor(articleId % 100000) % 10;
+		if (family === 1)
+		{
+			++bl.pSec;
+			if (articleId >= 910000 && articleId <= 919999)
+			{
+				++bl.cntLait;
+			}
+		}
+		else if (family === 2)
+		{
+			++bl.pFrais;
+			if (articleId >= 4520000 && articleId <= 919999)
+			{
+				++bl.cntFl;
+			}
+		}
+		else if (family === 3)
+		{
+			++bl.cntSurgel;
+		}
+
+		const src = articleId % 9;
+		if (src === 9)
+		{
+			++bl.cntFSE;
+		}
+		else if (src === 3)
+		{
+			++bl.cntCNES;
+		}
+
+		if (cols[VifParser.colIdx.LIBELLE].startsWith('proxidon'))
+		{
+			++bl.cntProxidon;
 		}
 	}
 
@@ -162,40 +210,40 @@ class VifParser
 
 	static _determineBLType(bl)
 	{
-		if (bl['Nb Proxidon'] > 0)
+		if (bl.cntProxidon > 0)
 		{
 			return 'Proxidon';
 		}
-		if (bl['Produits Surgelé'] > 0)
+		if (bl.pSurgel > 0)
 		{
 			return 'Surgelé';
 		}
-		if (bl['Produits Frais'] > 0)
+		if (bl.pFrais > 0)
 		{
 			return 'Frais';
 		}
-		if (bl['Produits Sec'] > 0)
+		if (bl.pSec > 0)
 		{
-			return (bl['Produits Sec'] - bl['Nb Lait'] <= 3) ? 'Complément' : 'Sec';
+			return (bl.pSec - bl.cntLait <= 3) ? 'Complément' : 'Sec';
 		}
 		return '';
 	}
 
 	static _determinePassageType(bl)
 	{
-		if (bl['Nb Proxidon'] > 0)
+		if (bl.cntProxidon > 0)
 		{
 			return '??';
 		}
-		if (bl['Produits Surgelé'] > 0)
+		if (bl.cntSurgel > 0)
 		{
 			return 'Su';
 		}
-		if (bl['Produits Frais'] > 0)
+		if (bl.pFrais > 0)
 		{
 			return 'Fr';
 		}
-		if (bl['Produits Sec'] > 0)
+		if (bl.pSec > 0)
 		{
 			return 'Se';
 		}
