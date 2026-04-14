@@ -57,7 +57,14 @@ function getPlanningTicks(datesArray)
 
 		const [d, m, y] = dateStr.split('/');
 		const date = new Date(2000 + (+y), m - 1, d, 12, 0, 0); // Use mid-day
-		map[dateStr] = dateToTick(date);
+		try
+		{
+			map[dateStr] = dateToTick(date);
+		}
+		catch (e)
+		{
+			console.error('Failed to compute tick for date:', dateStr, e);
+		}
 	}
 	return map;
 }
