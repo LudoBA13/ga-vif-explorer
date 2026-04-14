@@ -50,11 +50,6 @@ function getPlanningTicks(datesArray)
 	const map = {};
 	for (const dateStr of datesArray)
 	{
-		if (map[dateStr])
-		{
-			continue;
-		}
-
 		const [d, m, y] = dateStr.split('/');
 		const date = new Date(2000 + (+y), m - 1, d, 12, 0, 0); // Use mid-day
 		try
