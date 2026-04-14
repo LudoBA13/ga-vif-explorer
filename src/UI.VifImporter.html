@@ -18,6 +18,7 @@
 			<?!= vifParserSource ?>
 
 			let planningMap = null;
+			let precomputedData = null;
 			let isPrecomputing = false;
 
 			function onFileSelected(input)
@@ -29,8 +30,9 @@
 				}
 
 				planningMap = null;
+				precomputedData = null;
 				isPrecomputing = true;
-				document.getElementById('status').innerHTML = '<p>Pré-calcul des dates en cours...</p>';
+				document.getElementById('status').innerHTML = '<p>Pré-calcul en cours...</p>';
 
 				const reader = new FileReader();
 				reader.onload = function (e)
@@ -41,17 +43,14 @@
 					if (dates.length === 0)
 					{
 						planningMap = {};
-						isPrecomputing = false;
-						document.getElementById('status').innerHTML = '';
+						performParsing(text);
 						return;
 					}
 
 					google.script.run
 						.withSuccessHandler(function(map) {
 							planningMap = map;
-							isPrecomputing = false;
-							document.getElementById('status').innerHTML = '<p style="color:green;">Prêt pour l\'importation.</p>';
-							resize();
+							performParsing(text);
 						})
 						.withFailureHandler(function(err) {
 							isPrecomputing = false;
@@ -60,6 +59,26 @@
 						.getPlanningTicks(dates);
 				};
 				reader.readAsText(file, 'windows-1252');
+			}
+
+			function performParsing(text)
+			{
+				try
+				{
+					const parser = VifParser.parseBL(text, planningMap || {});
+					precomputedData = {
+						blRows: parser.getBlRows(),
+						itemRows: parser.getItemRows()
+					};
+					isPrecomputing = false;
+					document.getElementById('status').innerHTML = '<p style="color:green;">Prêt pour l\'importation.</p>';
+					resize();
+				}
+				catch (err)
+				{
+					isPrecomputing = false;
+					onFailure(err);
+				}
 			}
 
 			function upload()
@@ -74,7 +93,7 @@
 
 				if (isPrecomputing)
 				{
-					document.getElementById('status').innerHTML = '<p><progress indeterminate></progress> En attente du pré-calcul...</p>';
+					document.getElementById('status').innerHTML = '<p><progress indeterminate></progress> En attente du traitement...</p>';
 					setTimeout(upload, 500);
 					return;
 				}
@@ -82,27 +101,11 @@
 				document.getElementById('status').innerHTML = '<progress indeterminate></progress>';
 				resize();
 
-				const reader = new FileReader;
-				reader.onload = function (e)
-				{
-					try
-					{
-						const text = e.target.result;
-						const parser = VifParser.parseBL(text, planningMap || {});
-
-						google.script.run
-							.withSuccessHandler(onSuccess)
-							.withFailureHandler(onFailure)
-							.importVifData(parser.getBlRows(), parser.getItemRows());
-					}
-					catch (err)
-					{
-						onFailure(err);
-					}
-				};
-				reader.readAsText(file, 'windows-1252');
+				google.script.run
+					.withSuccessHandler(onSuccess)
+					.withFailureHandler(onFailure)
+					.importVifData(precomputedData.blRows, precomputedData.itemRows);
 			}
-
 			function onSuccess(message)
 			{
 				document.getElementById('status').innerHTML = `<p style="color:green;">${message}</p>`;
