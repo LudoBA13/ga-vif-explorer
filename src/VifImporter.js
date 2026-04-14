@@ -41,6 +41,28 @@ function importVifData(blRows, itemRows)
 }
 
 /**
+ * Pre-computes the planning ticks for a list of date strings (DD/MM/YY).
+ * @param {string[]} datesArray
+ * @returns {Object<string, number>} Map of date string to tick value.
+ */
+function getPlanningTicks(datesArray)
+{
+	const map = {};
+	for (const dateStr of datesArray)
+	{
+		if (map[dateStr])
+		{
+			continue;
+		}
+
+		const [d, m, y] = dateStr.split('/');
+		const date = new Date(2000 + (+y), m - 1, d, 12, 0, 0); // Use mid-day
+		map[dateStr] = dateToTick(date);
+	}
+	return map;
+}
+
+/**
  * Creates the menu when the spreadsheet is opened.
  */
 function onOpen()

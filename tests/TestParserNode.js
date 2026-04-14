@@ -19,7 +19,7 @@ try
 	const input = fs.readFileSync(testFilePath, 'latin1');
 	
 	console.log('--- Testing VifParser with Node.js ---');
-	const parser = VifParser.parseBL(input);
+	const parser = VifParser.parseBL(input, {});
 
 	console.log('\n--- BL Rows ---');
 	console.table(parser.getBlRows());

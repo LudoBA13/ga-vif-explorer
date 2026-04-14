@@ -15,24 +15,41 @@ Date livr.\tn° BL\tUnité\tArticle\tLibellé\tLot\tKg Net\tKg Brut
 
 `;
 
+const mockPlanningMap = {
+	'01/01/26': 260111
+};
+
 try
 {
 	console.log('--- Running Proxidon/FSE/CNES Calculation Test ---');
-	const parser = VifParser.parseBL(mockInput);
+	const parser = VifParser.parseBL(mockInput, mockPlanningMap);
 	const blRows = parser.getBlRows();
 
 	// Index 0 is header, index 1 is our mock BL
 	const blRow = blRows[1];
-	const cntProxidon = blRow[13]; // Nb Proxidon is at index 13
-	const cntFSE = blRow[12]; // Nb FSE+ is at index 12
-	const cntCNES = blRow[11]; // Nb CNES is at index 11
+	const planningTick = blRow[2]; // Planning Tick is at index 2
+	const cntProxidon = blRow[14]; // Nb Proxidon is at index 14
+	const cntFSE = blRow[13]; // Nb FSE+ is at index 13
+	const cntCNES = blRow[12]; // Nb CNES is at index 12
 
 	console.log('BL Row:', blRow);
+	console.log('Detected Planning Tick:', planningTick);
 	console.log('Detected Proxidon Count:', cntProxidon);
 	console.log('Detected FSE Count:', cntFSE);
 	console.log('Detected CNES Count:', cntCNES);
 
 	let allPassed = true;
+
+	if (planningTick === 260111)
+	{
+		console.log('\x1b[32mSUCCESS: Correctly assigned Planning Tick.\x1b[0m');
+	}
+	else
+	{
+		console.error(`\x1b[31mFAILURE: Expected Planning Tick 260111, but found ${planningTick}.\x1b[0m`);
+		allPassed = false;
+	}
+
 	if (cntProxidon === 2)
 	{
 		console.log('\x1b[32mSUCCESS: Correctly detected 2 Proxidon items.\x1b[0m');

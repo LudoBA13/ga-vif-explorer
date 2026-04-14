@@ -9,13 +9,58 @@
 			<p>Cette fonction permet d'importer les bons de livraisons VIF pour les mettre à jour dans ce document.</p>
 			<form onsubmit="event.preventDefault(); upload();">
 				<label for="file">Fichier VIF (texte)</label>
-				<input type="file" id="file" name="file" accept=".txt" required>
+				<input type="file" id="file" name="file" accept=".txt" required onchange="onFileSelected(this)">
 				<button type="submit">Importer</button>
 			</form>
 			<div id="status"></div>
 		</main>
 		<script>
 			<?!= vifParserSource ?>
+
+			let planningMap = null;
+			let isPrecomputing = false;
+
+			function onFileSelected(input)
+			{
+				const file = input.files[0];
+				if (!file)
+				{
+					return;
+				}
+
+				planningMap = null;
+				isPrecomputing = true;
+				document.getElementById('status').innerHTML = '<p>Pré-calcul des dates en cours...</p>';
+
+				const reader = new FileReader();
+				reader.onload = function (e)
+				{
+					const text = e.target.result;
+					const dates = Array.from(new Set(text.match(/\d{2}\/\d{2}\/\d{2}/g)));
+
+					if (dates.length === 0)
+					{
+						planningMap = {};
+						isPrecomputing = false;
+						document.getElementById('status').innerHTML = '';
+						return;
+					}
+
+					google.script.run
+						.withSuccessHandler(function(map) {
+							planningMap = map;
+							isPrecomputing = false;
+							document.getElementById('status').innerHTML = '<p style="color:green;">Prêt pour l\'importation.</p>';
+							resize();
+						})
+						.withFailureHandler(function(err) {
+							isPrecomputing = false;
+							onFailure(err);
+						})
+						.getPlanningTicks(dates);
+				};
+				reader.readAsText(file, 'windows-1252');
+			}
 
 			function upload()
 			{
@@ -24,6 +69,13 @@
 
 				if (!file)
 				{
+					return;
+				}
+
+				if (isPrecomputing)
+				{
+					document.getElementById('status').innerHTML = '<p><progress indeterminate></progress> En attente du pré-calcul...</p>';
+					setTimeout(upload, 500);
 					return;
 				}
 
@@ -36,7 +88,7 @@
 					try
 					{
 						const text = e.target.result;
-						const parser = VifParser.parseBL(text);
+						const parser = VifParser.parseBL(text, planningMap || {});
 
 						google.script.run
 							.withSuccessHandler(onSuccess)

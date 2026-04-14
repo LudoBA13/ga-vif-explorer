@@ -28,9 +28,10 @@ class VifParser
 		};
 	}
 
-	constructor()
+	constructor(planningMap = {})
 	{
-		this.blRows = [['Code VIF', 'Date', 'BL', 'Type BL', 'Type Passage', 'Total Kg Brut', 'Produits Sec', 'Produits Frais', 'Produits Surgelé', 'Nb F&L', 'Nb Lait Ambiant', 'Nb CNES', 'Nb FSE+', 'Nb Proxidon']];
+		this.planningMap = planningMap;
+		this.blRows = [['Code VIF', 'Date', 'Planning Tick', 'BL', 'Type BL', 'Type Passage', 'Total Kg Brut', 'Produits Sec', 'Produits Frais', 'Produits Surgelé', 'Nb F&L', 'Nb Lait Ambiant', 'Nb CNES', 'Nb FSE+', 'Nb Proxidon']];
 		this.itemRows = [['BL', 'Article', 'Kg Brut', 'Libellé']];
 	}
 
@@ -44,7 +45,7 @@ class VifParser
 		return this.itemRows;
 	}
 
-	static parseBL(input)
+	static parseBL(input, planningMap = {})
 	{
 		const m = input.match(/^\s*Rappel de la s.*?\nClient : \t\d{5}[^\n]+\n([^\n]+)\n[0-9]{2}\/[0-9]{2}\/[0-9]{2}\t/s);
 		if (!m)
@@ -63,7 +64,7 @@ class VifParser
 			throw new Error('Cannot match column headers');
 		}
 
-		const obj = new this;
+		const obj = new this(planningMap);
 		for (const custData of input.matchAll(/Client : \t.*?\n\r?\n/gs))
 		{
 			obj.parseCustomerData(custData[0]);
@@ -82,7 +83,7 @@ class VifParser
 		// Consume the next line of headers
 		lines.next();
 
-		let currentBl, currentBlId, currentDate;
+		let currentBl, currentBlId, currentDate, currentTick;
 		for (const line of lines)
 		{
 			const cols = line.split("\t");
@@ -96,8 +97,10 @@ class VifParser
 			}
 			if (cols[VifParser.colIdx.DATE] !== '')
 			{
-				const [d, m, y] = cols[0].split('/');
+				const rawDate = cols[0];
+				const [d, m, y] = rawDate.split('/');
 				currentDate = VifParser._getSheetsSerial(+y + 2000, m, d);
+				currentTick = this.planningMap[rawDate] || 0;
 			}
 			if (cols[VifParser.colIdx.BL] !== '')
 			{
@@ -106,7 +109,7 @@ class VifParser
 					this.blRows.push(this.serializeBl(currentBl));
 				}
 				currentBlId = +cols[VifParser.colIdx.BL];
-				currentBl = this.createBl(currentVif, currentDate, currentBlId);
+				currentBl = this.createBl(currentVif, currentDate, currentBlId, currentTick);
 			}
 
 			const articleId = +cols[VifParser.colIdx.ARTICLE];
@@ -174,11 +177,12 @@ class VifParser
 		}
 	}
 
-	createBl(vif, date, id)
+	createBl(vif, date, id, tick)
 	{
 		return {
 			vif:         vif,
 			date:        date,
+			tick:        tick,
 			id:          id,
 			weight:      0,
 			pSec:        0,
@@ -197,6 +201,7 @@ class VifParser
 		return [
 			bl.vif,
 			bl.date,
+			bl.tick,
 			bl.id,
 			VifParser._determineBLType(bl),
 			VifParser._determinePassageType(bl),
