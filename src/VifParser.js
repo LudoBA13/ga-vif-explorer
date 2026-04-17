@@ -11,6 +11,8 @@ class VifParser
 	static get SPECIAL_FAMILY()
 	{
 		return {
+			119000:  2, // Pain/Viennoiserie non lotis
+			4210001: 2, // Plat cuisiné végét. ambiant => Frais
 			4210011: 2, // Plat cuisiné viande ambiant => Frais
 			4710001: 2  // Oeufs ambiants => Frais
 		};
