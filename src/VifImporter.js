@@ -21,10 +21,12 @@ class VifImporter
 		const itemHeaders = itemRows.shift();
 
 		const blWriter = new SheetWriter('NEW_BL', blHeaders, blRows.length + 1);
+		blWriter.clearSheet();
 		blWriter.writeRows(blRows);
 		blWriter.trimUnusedRows();
 
 		const itemWriter = new SheetWriter('NEW_BL_Items', itemHeaders, itemRows.length + 1);
+		itemWriter.clearSheet();
 		itemWriter.writeRows(itemRows);
 		itemWriter.trimUnusedRows();
 

@@ -1,6 +1,16 @@
 class SheetWriter
 {
 	/**
+	 * Clears all content from the sheet.
+	 */
+	clearSheet()
+	{
+		this.sheet.clear();
+		this.currentRow = 1;
+		this.maxRows = this.sheet.getMaxRows();
+	}
+
+	/**
 	 * @param {string} sheetName
 	 * @param {string[]} headers
 	 * @param {number} expectedRows
