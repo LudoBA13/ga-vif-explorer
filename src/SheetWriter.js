@@ -5,8 +5,12 @@ class SheetWriter
 	 */
 	clearSheet()
 	{
-		this.sheet.clear();
-		this.currentRow = 1;
+		const lastRow = this.sheet.getLastRow();
+		if (lastRow > 1)
+		{
+			this.sheet.deleteRows(2, lastRow - 1);
+		}
+		this.currentRow = 2;
 		this.maxRows = this.sheet.getMaxRows();
 	}
 
