@@ -1,5 +1,8 @@
 class InsightsExporter
 {
+	static get CELL_VIF() { return 'C2'; }
+	static get CELL_OUTPUT() { return 'B5'; }
+
 	/**
 	 * Exports insights based on ACStructures values.
 	 */
@@ -14,30 +17,35 @@ class InsightsExporter
 			throw new Error('Required sheets not found.');
 		}
 
-		const acValues = acStructuresSheet.getRange('B2:B').getValues();
-		const wValues = acStructuresSheet.getRange('W2:W').getValues();
-		const targetSs = SpreadsheetApp.create('InsightsExport');
+		const names = acStructuresSheet.getRange('B2:B').getValues();
+		const vifs = acStructuresSheet.getRange('W2:W').getValues();
+		const timestamp = Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), '_yyyyMMdd_HHmmss');
+		const targetSs = SpreadsheetApp.create('InsightsExport' + timestamp);
 
 		const templateSheet = this.createTemplateSheet(targetSs, insightsSheet);
 
-		for (let i = 0; i < acValues.length; i++)
+		for (let i = 0; i < names.length; i++)
 		{
-			const acValue = acValues[i][0];
-			const wValue = wValues[i][0];
+			const name = names[i][0];
+			const vif = vifs[i][0];
 
-			if (!acValue || (typeof wValue === 'number' && wValue < 100000))
+			if (!name)
 			{
 				continue;
 			}
 
-			insightsSheet.getRange('C2').setValue(acValue);
+			if (typeof vif === 'number' && vif < 100000)
+			{
+				continue;
+			}
+
+			insightsSheet.getRange(this.CELL_VIF).setValue(name);
 			SpreadsheetApp.flush();
 
-			const observations = insightsSheet.getRange('B5').getValue();
+			const observations = insightsSheet.getRange(this.CELL_OUTPUT).getValue();
 			if (String(observations).includes('\u26a0'))
 			{
-				this.exportToNewSheet(templateSheet, insightsSheet, acValue);
-				break;
+				this.exportToNewSheet(templateSheet, insightsSheet, name);
 			}
 		}
 
@@ -55,6 +63,7 @@ class InsightsExporter
 		const templateSheet = sourceSheet.copyTo(targetSs);
 		templateSheet.setName('template');
 		templateSheet.clearContents(); // Clear values/formulas but preserve formatting
+		templateSheet.getRange(this.CELL_VIF).setDataValidation(null); // Explicitly remove from C2
 
 		targetSs.deleteSheet(initialSheet);
 
