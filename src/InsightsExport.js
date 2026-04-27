@@ -50,6 +50,18 @@ class InsightsExporter
 			templateSheet.getRange(range.getRow(), range.getColumn(), range.getNumRows(), range.getNumColumns()).merge();
 		}
 
+		// Copy borders
+		const sourceRange = insightsSheet.getDataRange();
+		const targetRange = templateSheet.getRange(1, 1, lastRow, lastColumn);
+		targetRange.setBorders(
+			sourceRange.getTopBorder(),
+			sourceRange.getLeftBorder(),
+			sourceRange.getBottomBorder(),
+			sourceRange.getRightBorder(),
+			sourceRange.getVerticalBorder(),
+			sourceRange.getHorizontalBorder()
+		);
+
 		for (let i = 0; i < acValues.length; i++)
 		{
 			const acValue = acValues[i][0];
