@@ -18,8 +18,9 @@ class InsightsExporter
 		const wValues = acStructuresSheet.getRange('W2:W').getValues();
 		const targetSs = SpreadsheetApp.create('InsightsExport');
 
-		// Create and prepare template
-		const templateSheet = targetSs.insertSheet('template');
+		// Use default sheet as template
+		const templateSheet = targetSs.getSheets()[0];
+		templateSheet.setName('template');
 		const lastRow = insightsSheet.getLastRow();
 		const lastColumn = insightsSheet.getLastColumn();
 
