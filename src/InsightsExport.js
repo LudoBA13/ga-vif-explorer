@@ -89,6 +89,9 @@ class InsightsExporter
 			templateSheet.setRowHeight(i, sourceSheet.getRowHeight(i));
 		}
 
+		// Copy formatting (borders, background, etc.)
+		sourceSheet.getDataRange().copyTo(templateSheet.getRange(1, 1), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+
 		return templateSheet;
 	}
 
