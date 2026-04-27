@@ -65,16 +65,7 @@ class InsightsExporter
 			templateSheet.deleteColumns(lastColumn + 1, templateSheet.getMaxColumns() - lastColumn);
 		}
 
-		for (let i = 1; i <= lastColumn; i++)
-		{
-			templateSheet.setColumnWidth(i, sourceSheet.getColumnWidth(i));
-		}
-
-		for (let i = 1; i <= lastRow; i++)
-		{
-			templateSheet.setRowHeight(i, sourceSheet.getRowHeight(i));
-		}
-
+		// Copy merged ranges
 		try
 		{
 			const mergedRanges = sourceSheet.getDataRange().getMergedRanges();
@@ -86,6 +77,16 @@ class InsightsExporter
 		catch (e)
 		{
 			console.warn('Could not copy merged ranges:', e);
+		}
+
+		for (let i = 1; i <= lastColumn; i++)
+		{
+			templateSheet.setColumnWidth(i, sourceSheet.getColumnWidth(i));
+		}
+
+		for (let i = 1; i <= lastRow; i++)
+		{
+			templateSheet.setRowHeight(i, sourceSheet.getRowHeight(i));
 		}
 
 		return templateSheet;
