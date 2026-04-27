@@ -51,46 +51,12 @@ class InsightsExporter
 	 */
 	static createTemplateSheet(targetSs, sourceSheet)
 	{
-		const templateSheet = targetSs.getSheets()[0];
+		const initialSheet = targetSs.getSheets()[0];
+		const templateSheet = sourceSheet.copyTo(targetSs);
 		templateSheet.setName('template');
-		const lastRow = sourceSheet.getLastRow();
-		const lastColumn = sourceSheet.getLastColumn();
+		templateSheet.clearContents(); // Clear values/formulas but preserve formatting
 
-		if (templateSheet.getMaxRows() > lastRow)
-		{
-			templateSheet.deleteRows(lastRow + 1, templateSheet.getMaxRows() - lastRow);
-		}
-		if (templateSheet.getMaxColumns() > lastColumn)
-		{
-			templateSheet.deleteColumns(lastColumn + 1, templateSheet.getMaxColumns() - lastColumn);
-		}
-
-		// Copy merged ranges
-		try
-		{
-			const mergedRanges = sourceSheet.getDataRange().getMergedRanges();
-			for (const range of mergedRanges)
-			{
-				templateSheet.getRange(range.getRow(), range.getColumn(), range.getNumRows(), range.getNumColumns()).merge();
-			}
-		}
-		catch (e)
-		{
-			console.warn('Could not copy merged ranges:', e);
-		}
-
-		for (let i = 1; i <= lastColumn; i++)
-		{
-			templateSheet.setColumnWidth(i, sourceSheet.getColumnWidth(i));
-		}
-
-		for (let i = 1; i <= lastRow; i++)
-		{
-			templateSheet.setRowHeight(i, sourceSheet.getRowHeight(i));
-		}
-
-		// Copy formatting (borders, background, etc.)
-		sourceSheet.getDataRange().copyTo(templateSheet.getRange(1, 1), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+		targetSs.deleteSheet(initialSheet);
 
 		return templateSheet;
 	}
