@@ -49,8 +49,20 @@ class InsightsExporter
 		const newSheetName = String(name);
 		const targetSheet = targetSs.insertSheet(newSheetName);
 
+		const lastRow = sourceSheet.getLastRow();
+		const lastColumn = sourceSheet.getLastColumn();
+
+		if (targetSheet.getMaxRows() > lastRow)
+		{
+			targetSheet.deleteRows(lastRow + 1, targetSheet.getMaxRows() - lastRow);
+		}
+		if (targetSheet.getMaxColumns() > lastColumn)
+		{
+			targetSheet.deleteColumns(lastColumn + 1, targetSheet.getMaxColumns() - lastColumn);
+		}
+
 		const sourceRange = sourceSheet.getDataRange();
-		const targetRange = targetSheet.getRange(1, 1, sourceRange.getNumRows(), sourceRange.getNumColumns());
+		const targetRange = targetSheet.getRange(1, 1, lastRow, lastColumn);
 
 		targetRange.setValues(sourceRange.getValues());
 		targetRange.setNumberFormats(sourceRange.getNumberFormats());
@@ -62,10 +74,15 @@ class InsightsExporter
 		targetRange.setHorizontalAlignments(sourceRange.getHorizontalAlignments());
 		targetRange.setVerticalAlignments(sourceRange.getVerticalAlignments());
 
-		// Adjust column widths
-		for (let i = 1; i <= sourceRange.getNumColumns(); i++)
+		// Adjust column widths and row heights
+		for (let i = 1; i <= lastColumn; i++)
 		{
 			targetSheet.setColumnWidth(i, sourceSheet.getColumnWidth(i));
+		}
+
+		for (let i = 1; i <= lastRow; i++)
+		{
+			targetSheet.setRowHeight(i, sourceSheet.getRowHeight(i));
 		}
 	}
 }
