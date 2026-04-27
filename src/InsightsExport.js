@@ -42,13 +42,6 @@ class InsightsExporter
 		}
 
 		targetSs.deleteSheet(templateSheet);
-
-		// Remove default sheet if it still exists
-		const defaultSheet = targetSs.getSheets()[0];
-		if (defaultSheet)
-		{
-			targetSs.deleteSheet(defaultSheet);
-		}
 	}
 
 	/**
