@@ -44,10 +44,17 @@ class InsightsExporter
 		}
 
 		// Copy merged ranges
-		const mergedRanges = insightsSheet.getMergedRanges();
-		for (const range of mergedRanges)
+		try
 		{
-			templateSheet.getRange(range.getRow(), range.getColumn(), range.getNumRows(), range.getNumColumns()).merge();
+			const mergedRanges = insightsSheet.getMergedRanges();
+			for (const range of mergedRanges)
+			{
+				templateSheet.getRange(range.getRow(), range.getColumn(), range.getNumRows(), range.getNumColumns()).merge();
+			}
+		}
+		catch (e)
+		{
+			console.warn('Could not copy merged ranges:', e);
 		}
 
 		// Copy borders
