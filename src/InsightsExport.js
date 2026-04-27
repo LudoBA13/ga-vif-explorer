@@ -46,7 +46,7 @@ class InsightsExporter
 		// Copy merged ranges
 		try
 		{
-			const mergedRanges = insightsSheet.getMergedRanges();
+			const mergedRanges = insightsSheet.getDataRange().getMergedRanges();
 			for (const range of mergedRanges)
 			{
 				templateSheet.getRange(range.getRow(), range.getColumn(), range.getNumRows(), range.getNumColumns()).merge();
