@@ -18,6 +18,30 @@ class InsightsExporter
 		const wValues = acStructuresSheet.getRange('W2:W').getValues();
 		const targetSs = SpreadsheetApp.create('InsightsExport');
 
+		// Create and prepare template
+		const templateSheet = targetSs.insertSheet('template');
+		const lastRow = insightsSheet.getLastRow();
+		const lastColumn = insightsSheet.getLastColumn();
+
+		if (templateSheet.getMaxRows() > lastRow)
+		{
+			templateSheet.deleteRows(lastRow + 1, templateSheet.getMaxRows() - lastRow);
+		}
+		if (templateSheet.getMaxColumns() > lastColumn)
+		{
+			templateSheet.deleteColumns(lastColumn + 1, templateSheet.getMaxColumns() - lastColumn);
+		}
+
+		for (let i = 1; i <= lastColumn; i++)
+		{
+			templateSheet.setColumnWidth(i, insightsSheet.getColumnWidth(i));
+		}
+
+		for (let i = 1; i <= lastRow; i++)
+		{
+			templateSheet.setRowHeight(i, insightsSheet.getRowHeight(i));
+		}
+
 		for (let i = 0; i < acValues.length; i++)
 		{
 			const acValue = acValues[i][0];
@@ -34,35 +58,32 @@ class InsightsExporter
 			const observations = insightsSheet.getRange('B5').getValue();
 			if (String(observations).includes('\u26a0'))
 			{
-				this.exportToNewSheet(targetSs, insightsSheet, acValue);
+				this.exportToNewSheet(templateSheet, insightsSheet, acValue);
 			}
+		}
+
+		targetSs.deleteSheet(templateSheet);
+		
+		// Remove default sheet if it still exists
+		const defaultSheet = targetSs.getSheets()[0];
+		if (defaultSheet)
+		{
+			targetSs.deleteSheet(defaultSheet);
 		}
 	}
 
 	/**
-	 * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} targetSs
+	 * @param {GoogleAppsScript.Spreadsheet.Sheet} templateSheet
 	 * @param {GoogleAppsScript.Spreadsheet.Sheet} sourceSheet
 	 * @param {string|number} name
 	 */
-	static exportToNewSheet(targetSs, sourceSheet, name)
+	static exportToNewSheet(templateSheet, sourceSheet, name)
 	{
-		const newSheetName = String(name);
-		const targetSheet = targetSs.insertSheet(newSheetName);
-
-		const lastRow = sourceSheet.getLastRow();
-		const lastColumn = sourceSheet.getLastColumn();
-
-		if (targetSheet.getMaxRows() > lastRow)
-		{
-			targetSheet.deleteRows(lastRow + 1, targetSheet.getMaxRows() - lastRow);
-		}
-		if (targetSheet.getMaxColumns() > lastColumn)
-		{
-			targetSheet.deleteColumns(lastColumn + 1, targetSheet.getMaxColumns() - lastColumn);
-		}
+		const newSheet = templateSheet.copyTo(templateSheet.getParent());
+		newSheet.setName(String(name));
 
 		const sourceRange = sourceSheet.getDataRange();
-		const targetRange = targetSheet.getRange(1, 1, lastRow, lastColumn);
+		const targetRange = newSheet.getRange(1, 1, sourceRange.getNumRows(), sourceRange.getNumColumns());
 
 		targetRange.setValues(sourceRange.getValues());
 		targetRange.setNumberFormats(sourceRange.getNumberFormats());
@@ -73,16 +94,5 @@ class InsightsExporter
 		targetRange.setFontWeights(sourceRange.getFontWeights());
 		targetRange.setHorizontalAlignments(sourceRange.getHorizontalAlignments());
 		targetRange.setVerticalAlignments(sourceRange.getVerticalAlignments());
-
-		// Adjust column widths and row heights
-		for (let i = 1; i <= lastColumn; i++)
-		{
-			targetSheet.setColumnWidth(i, sourceSheet.getColumnWidth(i));
-		}
-
-		for (let i = 1; i <= lastRow; i++)
-		{
-			targetSheet.setRowHeight(i, sourceSheet.getRowHeight(i));
-		}
 	}
 }
