@@ -42,6 +42,13 @@ class InsightsExporter
 			templateSheet.setRowHeight(i, insightsSheet.getRowHeight(i));
 		}
 
+		// Copy merged ranges
+		const mergedRanges = insightsSheet.getMergedRanges();
+		for (const range of mergedRanges)
+		{
+			templateSheet.getRange(range.getRow(), range.getColumn(), range.getNumRows(), range.getNumColumns()).merge();
+		}
+
 		for (let i = 0; i < acValues.length; i++)
 		{
 			const acValue = acValues[i][0];
