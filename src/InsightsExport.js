@@ -86,6 +86,7 @@ class InsightsExporter
 			if (String(observations).includes('\u26a0'))
 			{
 				this.exportToNewSheet(templateSheet, insightsSheet, acValue);
+				break;
 			}
 		}
 
