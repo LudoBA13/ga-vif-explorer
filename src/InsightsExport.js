@@ -85,3 +85,11 @@ class InsightsExporter
 		targetRange.setVerticalAlignments(sourceRange.getVerticalAlignments());
 	}
 }
+
+/**
+ * Global entry point to run the insights export from the GAS editor.
+ */
+function triggerInsightsExport()
+{
+	InsightsExporter.run();
+}
