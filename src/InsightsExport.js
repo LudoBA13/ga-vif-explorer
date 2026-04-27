@@ -57,17 +57,8 @@ class InsightsExporter
 			console.warn('Could not copy merged ranges:', e);
 		}
 
-		// Copy borders
-		const sourceRange = insightsSheet.getDataRange();
-		const targetRange = templateSheet.getRange(1, 1, lastRow, lastColumn);
-		targetRange.setBorders(
-			sourceRange.getTopBorder(),
-			sourceRange.getLeftBorder(),
-			sourceRange.getBottomBorder(),
-			sourceRange.getRightBorder(),
-			sourceRange.getVerticalBorder(),
-			sourceRange.getHorizontalBorder()
-		);
+		// Copy borders - borders are difficult across different spreadsheets, omitting for stability
+		// targetRange.setBorders(...) 
 
 		for (let i = 0; i < acValues.length; i++)
 		{
