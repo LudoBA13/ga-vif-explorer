@@ -73,6 +73,7 @@ function onOpen()
 {
 	SpreadsheetApp.getUi().createMenu('VIF')
 		.addItem('Importer BLs', 'showVifImporter')
+		.addItem('Exporter Insights', 'runInsightsExport')
 		.addToUi();
 }
 
@@ -82,4 +83,12 @@ function onOpen()
 function showVifImporter()
 {
 	VifImporter.show();
+}
+
+/**
+ * Wrapper for the export insights menu action.
+ */
+function runInsightsExport()
+{
+	InsightsExporter.run();
 }
