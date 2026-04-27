@@ -18,47 +18,7 @@ class InsightsExporter
 		const wValues = acStructuresSheet.getRange('W2:W').getValues();
 		const targetSs = SpreadsheetApp.create('InsightsExport');
 
-		// Use default sheet as template
-		const templateSheet = targetSs.getSheets()[0];
-		templateSheet.setName('template');
-		const lastRow = insightsSheet.getLastRow();
-		const lastColumn = insightsSheet.getLastColumn();
-
-		if (templateSheet.getMaxRows() > lastRow)
-		{
-			templateSheet.deleteRows(lastRow + 1, templateSheet.getMaxRows() - lastRow);
-		}
-		if (templateSheet.getMaxColumns() > lastColumn)
-		{
-			templateSheet.deleteColumns(lastColumn + 1, templateSheet.getMaxColumns() - lastColumn);
-		}
-
-		for (let i = 1; i <= lastColumn; i++)
-		{
-			templateSheet.setColumnWidth(i, insightsSheet.getColumnWidth(i));
-		}
-
-		for (let i = 1; i <= lastRow; i++)
-		{
-			templateSheet.setRowHeight(i, insightsSheet.getRowHeight(i));
-		}
-
-		// Copy merged ranges
-		try
-		{
-			const mergedRanges = insightsSheet.getDataRange().getMergedRanges();
-			for (const range of mergedRanges)
-			{
-				templateSheet.getRange(range.getRow(), range.getColumn(), range.getNumRows(), range.getNumColumns()).merge();
-			}
-		}
-		catch (e)
-		{
-			console.warn('Could not copy merged ranges:', e);
-		}
-
-		// Copy borders - borders are difficult across different spreadsheets, omitting for stability
-		// targetRange.setBorders(...) 
+		const templateSheet = this.createTemplateSheet(targetSs, insightsSheet);
 
 		for (let i = 0; i < acValues.length; i++)
 		{
@@ -82,13 +42,60 @@ class InsightsExporter
 		}
 
 		targetSs.deleteSheet(templateSheet);
-		
+
 		// Remove default sheet if it still exists
 		const defaultSheet = targetSs.getSheets()[0];
 		if (defaultSheet)
 		{
 			targetSs.deleteSheet(defaultSheet);
 		}
+	}
+
+	/**
+	 * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} targetSs
+	 * @param {GoogleAppsScript.Spreadsheet.Sheet} sourceSheet
+	 * @returns {GoogleAppsScript.Spreadsheet.Sheet}
+	 */
+	static createTemplateSheet(targetSs, sourceSheet)
+	{
+		const templateSheet = targetSs.getSheets()[0];
+		templateSheet.setName('template');
+		const lastRow = sourceSheet.getLastRow();
+		const lastColumn = sourceSheet.getLastColumn();
+
+		if (templateSheet.getMaxRows() > lastRow)
+		{
+			templateSheet.deleteRows(lastRow + 1, templateSheet.getMaxRows() - lastRow);
+		}
+		if (templateSheet.getMaxColumns() > lastColumn)
+		{
+			templateSheet.deleteColumns(lastColumn + 1, templateSheet.getMaxColumns() - lastColumn);
+		}
+
+		for (let i = 1; i <= lastColumn; i++)
+		{
+			templateSheet.setColumnWidth(i, sourceSheet.getColumnWidth(i));
+		}
+
+		for (let i = 1; i <= lastRow; i++)
+		{
+			templateSheet.setRowHeight(i, sourceSheet.getRowHeight(i));
+		}
+
+		try
+		{
+			const mergedRanges = sourceSheet.getDataRange().getMergedRanges();
+			for (const range of mergedRanges)
+			{
+				templateSheet.getRange(range.getRow(), range.getColumn(), range.getNumRows(), range.getNumColumns()).merge();
+			}
+		}
+		catch (e)
+		{
+			console.warn('Could not copy merged ranges:', e);
+		}
+
+		return templateSheet;
 	}
 
 	/**
