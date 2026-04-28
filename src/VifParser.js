@@ -33,7 +33,7 @@ class VifParser
 	constructor(planningMap = {})
 	{
 		this.planningMap = planningMap;
-		this.blRows = [['Code VIF', 'Date', 'Planning Tick', 'BL', 'Type BL', 'Type Passage', 'Total Kg Brut', 'Produits Sec', 'Produits Frais', 'Produits Surgelé', 'Nb F&L', 'Nb Lait Ambiant', 'Nb CNES', 'Nb FSE+', 'Nb Proxidon']];
+		this.blRows = [['Code VIF', 'Date', 'Planning Tick', 'BL', 'Type BL', 'Type Passage', 'Total Kg Brut']];
 		this.itemRows = [['BL', 'Article', 'Kg Brut', 'Libellé']];
 	}
 
@@ -207,15 +207,7 @@ class VifParser
 			bl.id,
 			VifParser._determineBLType(bl),
 			VifParser._determinePassageType(bl),
-			bl.weight,
-			bl.pSec,
-			bl.pFrais,
-			bl.pSurgel,
-			bl.cntFl,
-			bl.cntLait,
-			bl.cntCNES,
-			bl.cntFSE,
-			bl.cntProxidon
+			bl.weight
 		];
 	}
 
